@@ -1,65 +1,88 @@
+import 'reflect-metadata';
+import compression from 'compression';
+import cookieParser from 'cookie-parser';
+import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
-import compression from 'compression';
-import cors from 'cors';
-import passport from 'passport';
-import httpStatus from 'http-status';
-import config from './config/config';
-import morgan from './config/morgan';
-import xss from './middlewares/xss';
-import { jwtStrategy } from './config/passport';
-import { authLimiter } from './middlewares/rateLimiter';
-import routes from './routes/v1';
-import { errorConverter, errorHandler } from './middlewares/error';
-import ApiError from './utils/ApiError';
+import hpp from 'hpp';
+import morgan from 'morgan';
+import { Model } from 'objection';
+import swaggerJSDoc from 'swagger-jsdoc';
+import swaggerUi from 'swagger-ui-express';
+import { NODE_ENV, PORT, LOG_FORMAT, ORIGIN, CREDENTIALS } from '@config';
+import { knex } from '@database';
+import { Routes } from '@interfaces/routes.interface';
+import { ErrorMiddleware } from '@middlewares/error.middleware';
+import { logger, stream } from '@utils/logger';
 
-const app = express();
+export class App {
+  public app: express.Application;
+  public env: string;
+  public port: string | number;
 
-if (config.env !== 'test') {
-  app.use(morgan.successHandler);
-  app.use(morgan.errorHandler);
+  constructor(routes: Routes[]) {
+    this.app = express();
+    this.env = NODE_ENV || 'development';
+    this.port = PORT || 3000;
+
+    this.connectToDatabase();
+    this.initializeMiddlewares();
+    this.initializeRoutes(routes);
+    this.initializeSwagger();
+    this.initializeErrorHandling();
+  }
+
+  public listen() {
+    this.app.listen(this.port, () => {
+      logger.info(`=================================`);
+      logger.info(`======= ENV: ${this.env} =======`);
+      logger.info(`🚀 App listening on the port ${this.port}`);
+      logger.info(`=================================`);
+    });
+  }
+
+  public getServer() {
+    return this.app;
+  }
+
+  private connectToDatabase() {
+    Model.knex(knex());
+  }
+
+  private initializeMiddlewares() {
+    this.app.use(morgan(LOG_FORMAT, { stream }));
+    this.app.use(cors({ origin: ORIGIN, credentials: CREDENTIALS }));
+    this.app.use(hpp());
+    this.app.use(helmet());
+    this.app.use(compression());
+    this.app.use(express.json());
+    this.app.use(express.urlencoded({ extended: true }));
+    this.app.use(cookieParser());
+  }
+
+  private initializeRoutes(routes: Routes[]) {
+    routes.forEach(route => {
+      this.app.use('/', route.router);
+    });
+  }
+
+  private initializeSwagger() {
+    const options = {
+      swaggerDefinition: {
+        info: {
+          title: 'REST API',
+          version: '1.0.0',
+          description: 'Example docs',
+        },
+      },
+      apis: ['swagger.yaml'],
+    };
+
+    const specs = swaggerJSDoc(options);
+    this.app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
+  }
+
+  private initializeErrorHandling() {
+    this.app.use(ErrorMiddleware);
+  }
 }
-
-// set security HTTP headers
-app.use(helmet());
-
-// parse json request body
-app.use(express.json());
-
-// parse urlencoded request body
-app.use(express.urlencoded({ extended: true }));
-
-// sanitize request data
-app.use(xss());
-
-// gzip compression
-app.use(compression());
-
-// enable cors
-app.use(cors());
-app.options('*', cors());
-
-// jwt authentication
-app.use(passport.initialize());
-passport.use('jwt', jwtStrategy);
-
-// limit repeated failed requests to auth endpoints
-if (config.env === 'production') {
-  app.use('/v1/auth', authLimiter);
-}
-
-// v1 api routes
-app.use('/v1', routes);
-
-// send back a 404 error for any unknown api request
-app.use((req, res, next) => {
-  next(new ApiError(httpStatus.NOT_FOUND, 'Not found'));
-});
-
-// convert error to ApiError, if needed
-app.use(errorConverter);
-
-// handle error
-app.use(errorHandler);
-
-export default app;
