@@ -1,44 +1,64 @@
-import { NextFunction, Request, Response } from 'express';
-import { Container } from 'typedi';
-import { RequestWithUser } from '@interfaces/auth.interface';
-import { User } from '@interfaces/users.interface';
-import { AuthService } from '@services/auth.service';
+import httpStatus from 'http-status';
+import catchAsync from '../utils/catchAsync';
+import { authService, userService, tokenService, emailService } from '../services';
+import exclude from '../utils/exclude';
+import { User } from '@prisma/client';
 
-export class AuthController {
-  public auth = Container.get(AuthService);
+const register = catchAsync(async (req, res) => {
+  const { email, password } = req.body;
+  const user = await userService.createUser(email, password);
+  const userWithoutPassword = exclude(user, ['password', 'createdAt', 'updatedAt']);
+  const tokens = await tokenService.generateAuthTokens(user);
+  res.status(httpStatus.CREATED).send({ user: userWithoutPassword, tokens });
+});
 
-  public signUp = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const userData: User = req.body;
-      const signUpUserData: User = await this.auth.signup(userData);
+const login = catchAsync(async (req, res) => {
+  const { email, password } = req.body;
+  const user = await authService.loginUserWithEmailAndPassword(email, password);
+  const tokens = await tokenService.generateAuthTokens(user);
+  res.send({ user, tokens });
+});
 
-      res.status(201).json({ data: signUpUserData, message: 'signup' });
-    } catch (error) {
-      next(error);
-    }
-  };
+const logout = catchAsync(async (req, res) => {
+  await authService.logout(req.body.refreshToken);
+  res.status(httpStatus.NO_CONTENT).send();
+});
 
-  public logIn = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const userData: User = req.body;
-      const { cookie, findUser } = await this.auth.login(userData);
+const refreshTokens = catchAsync(async (req, res) => {
+  const tokens = await authService.refreshAuth(req.body.refreshToken);
+  res.send({ ...tokens });
+});
 
-      res.setHeader('Set-Cookie', [cookie]);
-      res.status(200).json({ data: findUser, message: 'login' });
-    } catch (error) {
-      next(error);
-    }
-  };
+const forgotPassword = catchAsync(async (req, res) => {
+  const resetPasswordToken = await tokenService.generateResetPasswordToken(req.body.email);
+  await emailService.sendResetPasswordEmail(req.body.email, resetPasswordToken);
+  res.status(httpStatus.NO_CONTENT).send();
+});
 
-  public logOut = async (req: RequestWithUser, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const userData: User = req.user;
-      const logOutUserData: User = await this.auth.logout(userData);
+const resetPassword = catchAsync(async (req, res) => {
+  await authService.resetPassword(req.query.token as string, req.body.password);
+  res.status(httpStatus.NO_CONTENT).send();
+});
 
-      res.setHeader('Set-Cookie', ['Authorization=; Max-age=0']);
-      res.status(200).json({ data: logOutUserData, message: 'logout' });
-    } catch (error) {
-      next(error);
-    }
-  };
-}
+const sendVerificationEmail = catchAsync(async (req, res) => {
+  const user = req.user as User;
+  const verifyEmailToken = await tokenService.generateVerifyEmailToken(user);
+  await emailService.sendVerificationEmail(user.email, verifyEmailToken);
+  res.status(httpStatus.NO_CONTENT).send();
+});
+
+const verifyEmail = catchAsync(async (req, res) => {
+  await authService.verifyEmail(req.query.token as string);
+  res.status(httpStatus.NO_CONTENT).send();
+});
+
+export default {
+  register,
+  login,
+  logout,
+  refreshTokens,
+  forgotPassword,
+  resetPassword,
+  sendVerificationEmail,
+  verifyEmail
+};

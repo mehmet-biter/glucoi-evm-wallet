@@ -1,55 +1,37 @@
-version: "3.9"
+version: '3.8'
 
 services:
-  proxy:
-    container_name: proxy
-    image: nginx:alpine
-    ports:
-      - "80:80"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf
-    restart: "unless-stopped"
-    networks:
-      - backend
-
-  server:
-    container_name: server
-    build:
-      context: ./
-      dockerfile: Dockerfile.dev
-    ports:
-      - "3000:3000"
+  node-app:
+    build: .
+    image: node-app
     environment:
-      DB_USER: root
-      DB_PASSWORD: password
-      DB_DATABASE: dev
-    volumes:
-      - ./:/app
-      - /app/node_modules
-    restart: "unless-stopped"
-    networks:
-      - backend
-    links:
-      - mysql
+      - MONGODB_URL=mongodb://mongodb:27017/node-boilerplate
+    ports:
+      - '3000:3000'
     depends_on:
-      - mysql
-
-  mysql:
-    container_name: mysql
-    image: mysql:5.7
-    environment:
-      DB_USER: root
-      DB_PASSWORD: password
-      DB_DATABASE: dev
-    ports:
-      - "3306:3306"
+      - postgresdb
+    volumes:
+      - .:/usr/src/node-app
     networks:
-      - backend
+      - node-network
 
-networks:
-  backend:
-    driver: bridge
+  postgresdb:
+    image: postgres
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=secret
+    ports:
+      - '5432:5432'
+    volumes: 
+      - dbdata:/var/lib/postgresql/data
+    networks:
+      - node-network
 
 volumes:
-  data:
+  dbdata:
     driver: local
+
+networks:
+  node-network:
+    driver: bridge
