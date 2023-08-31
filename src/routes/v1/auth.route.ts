@@ -6,8 +6,9 @@ import { authController } from '../../controllers';
 
 const router = express.Router();
 
-router.get('/test', authController.test);
+router.get('/test',authController.verifyToken, authController.test);
 router.post('/login', validate(authValidation.login), authController.login);
+router.get('/verify-token',authController.verifyToken);
 router.post('/logout', validate(authValidation.logout), authController.logout);
 
 export default router;

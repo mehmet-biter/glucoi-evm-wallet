@@ -4,6 +4,12 @@ export interface ResponseData {
     data: any;
 }
 
+export interface JwtResponseData {
+    code: number;
+    message: string;
+}
+  
+
 export function generateResponse(statusCode: number, message: string, data?: any): ResponseData {
     return {
       status_code: statusCode,
