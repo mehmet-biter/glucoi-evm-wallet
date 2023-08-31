@@ -1,25 +1,68 @@
-import httpStatus from 'http-status';
-import userService from './user.service';
-import ApiError from '../utils/ApiError';
-import { encryptPassword, isPasswordMatch } from '../utils/encryption';
-import exclude from '../utils/exclude';
+import { PrismaClient } from '@prisma/client';
+import jwt from 'jsonwebtoken';
+import { ResponseData, generateResponse} from '../utils/commonObject';
 
-/**
- * Login with username and password
- * @param {string} email
- * @param {string} password
- * @returns {Promise<Omit<User, 'password'>>}
- */
-const loginUserWithEmailAndPassword = async (
-  email: string,
-  password: string
-): Promise<any> => {
-  const user = await userService.getUserByEmail(email);
-  if (!user || !(await isPasswordMatch(password, user.password as string))) {
-    throw new ApiError(httpStatus.UNAUTHORIZED, 'Incorrect email or password');
+const prisma = new PrismaClient();
+const secret = process.env.JWT_SECRET ??'';
+
+const loginUserWithEmail = async (email : string) => {
+  var responseData:ResponseData;
+  var statusCode;
+  var message;
+
+  try{
+    
+    const userDetails = await prisma.users.findUnique({
+      where: {
+        email: 'user@email.com'
+      }
+    });
+    
+    if(userDetails)
+    {
+      var userData = {
+        id: userDetails.id.toString(),
+        first_name: userDetails.first_name,
+        last_name: userDetails.last_name,
+        nick_name: userDetails.nickname,
+        email: userDetails.email,
+        role: userDetails.role,
+        role_id: userDetails.role_id,
+        super_admin: userDetails.super_admin,
+        status: userDetails.status,
+      }
+
+      var token = jwt.sign({ 
+        user_details: userData
+       }, secret);
+
+      var data = {
+        user_details: userData,
+        token:token
+      };
+
+      statusCode = 200;
+      message = 'User login token is generated successfully!';
+
+      responseData = generateResponse(statusCode,message,data);
+      
+
+    } else {
+      
+      statusCode = 404;
+      message = 'User login token is not generated!';
+       
+      responseData = responseData = generateResponse(statusCode,message);
+    }
+  }catch(error){
+    statusCode = 404;
+    message = 'Something went wrong!';
+  
+    responseData = responseData = generateResponse(statusCode,message);
   }
-  return exclude(user, ['password']);
-};
+
+  return responseData;
+}
 
 /**
  * Logout
@@ -30,25 +73,7 @@ const logout = async (refreshToken: string): Promise<void> => {
   
 };
 
-/**
- * Refresh auth tokens
- * @param {string} refreshToken
- * @returns {Promise<AuthTokensResponse>}
- */
-const refreshAuth = async (refreshToken: string): Promise<any> => {
-  try {
-    
-  } catch (error) {
-    throw new ApiError(httpStatus.UNAUTHORIZED, 'Please authenticate');
-  }
-};
-
-
-
 export default {
-  loginUserWithEmailAndPassword,
-  isPasswordMatch,
-  encryptPassword,
-  logout,
-  refreshAuth,
+  loginUserWithEmail,
+  logout
 };

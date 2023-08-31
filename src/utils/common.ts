@@ -1,5 +1,5 @@
 import { Response } from "express";
-import { ResponseModel } from "../types/response";
+
 interface ErrorResponse {
   success: false;
   message: string;

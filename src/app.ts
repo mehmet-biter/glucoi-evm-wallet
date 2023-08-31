@@ -12,8 +12,14 @@ import { authLimiter } from './middlewares/rateLimiter';
 import routes from './routes/v1';
 import { errorConverter, errorHandler } from './middlewares/error';
 import ApiError from './utils/ApiError';
+import dotenv from 'dotenv';
+import bodyParser from 'body-parser';
+
 
 const app = express();
+dotenv.config()
+
+app.use(bodyParser.json());
 
 if (config.env !== 'test') {
   app.use(morgan.successHandler);

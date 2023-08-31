@@ -1,8 +1,12 @@
 import httpStatus from 'http-status';
 import catchAsync from '../utils/catchAsync';
 import { authService } from '../services';
-import exclude from '../utils/exclude';
+import { PrismaClient } from '@prisma/client';
+import { Request, Response } from 'express';
+import { ResponseData } from '../utils/commonObject';
 
+const prisma = new PrismaClient()
+const secret = process.env.JWT_SECRET ??'';
 
 const test = catchAsync(async (req, res) => {
   
@@ -10,22 +14,32 @@ const test = catchAsync(async (req, res) => {
   res.json({ data });
 });
 
-const login = catchAsync(async (req, res) => {
-  const { email, password } = req.body;
-  const user:any = await authService.loginUserWithEmailAndPassword(email, password);
-  const tokens = 'ssss';
-  res.send({ user, tokens });
-});
+ type Login = {email:String};
+
+const login = async (req:Request, res:Response) => {
+  
+  try {
+    const { email } = req.body;
+
+    const response:ResponseData = await authService.loginUserWithEmail(email);
+    console.log(response.status_code);
+    res.status(200).json({ response });
+    
+  } catch (error) {
+
+    res.status(500).json({ error: 'Internal server error' });
+  }
+
+};
 
 const logout = catchAsync(async (req, res) => {
   await authService.logout(req.body.refreshToken);
   res.status(httpStatus.NO_CONTENT).send();
 });
 
-
 export default {
   test,
   login,
   logout,
- 
+
 };
