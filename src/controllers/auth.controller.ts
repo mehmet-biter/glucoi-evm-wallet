@@ -23,7 +23,7 @@ const login = async (req:Request, res:Response) => {
 
     const response:ResponseData = await authService.loginUserWithEmail(email);
     console.log(response.status_code);
-    res.status(200).json({ response });
+    res.status(response.status_code).json({ response });
     
   } catch (error) {
 

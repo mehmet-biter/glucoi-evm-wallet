@@ -9,12 +9,13 @@ const loginUserWithEmail = async (email : string) => {
   var responseData:ResponseData;
   var statusCode;
   var message;
+  var data = {};
 
   try{
     
     const userDetails = await prisma.users.findUnique({
       where: {
-        email: 'user@email.com'
+        email: email
       }
     });
     
@@ -36,32 +37,26 @@ const loginUserWithEmail = async (email : string) => {
         user_details: userData
        }, secret);
 
-      var data = {
+      data = {
         user_details: userData,
         token:token
       };
 
       statusCode = 200;
       message = 'User login token is generated successfully!';
-
-      responseData = generateResponse(statusCode,message,data);
       
-
     } else {
       
       statusCode = 404;
       message = 'User login token is not generated!';
-       
-      responseData = responseData = generateResponse(statusCode,message);
+    
     }
   }catch(error){
     statusCode = 404;
     message = 'Something went wrong!';
-  
-    responseData = responseData = generateResponse(statusCode,message);
   }
 
-  return responseData;
+  return generateResponse(statusCode,message,data);
 }
 
 /**

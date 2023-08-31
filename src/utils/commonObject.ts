@@ -1,5 +1,5 @@
 export interface ResponseData {
-    status_code:Number;
+    status_code:number;
     message: String;
     data: any;
 }
