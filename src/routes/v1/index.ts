@@ -1,5 +1,6 @@
 import express from 'express';
 import authRoute from './auth.route';
+import evmRoute from './wallet.route';
 
 
 const router = express.Router();
@@ -9,10 +10,10 @@ const defaultRoutes = [
     path: "/auth",
     route: authRoute,
   },
-  // {
-  //   path: "/",
-  //   route: authRoute,
-  // },
+  {
+    path: "/evm",
+    route: evmRoute,
+  },
 ];
 
 
