@@ -16,7 +16,6 @@ const secret = process.env.JWT_SECRET ?? "";
 
 const test = catchAsync(async (req, res) => {
   const data = "api worked fine";
-  console.log("Coming");
 
   res.status(200).json({ data: data });
 });
