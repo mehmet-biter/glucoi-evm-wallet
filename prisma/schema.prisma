@@ -357,6 +357,14 @@ model coins {
   last_timestamp       BigInt    @default(0) @db.UnsignedBigInt
   created_at           DateTime? @db.Timestamp(0)
   updated_at           DateTime? @db.Timestamp(0)
+  decimal              Int
+  sync_rate_status     Int       @default(0) @db.TinyInt
+  convert_status       Int       @default(0) @db.TinyInt
+  min_convert_amount   String
+  max_convert_amount   String
+  convert_fee_type     Int       @default(1) @db.TinyInt
+  convert_fee          Int       @db.TinyInt
+  market_cap           String
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
@@ -521,6 +529,7 @@ model custom_pages {
 
 model deposite_transactions {
   id                 BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  uid                String
   address            String
   from_address       String?
   fees               Decimal   @default(0.000000000000000000) @db.Decimal(29, 18)
@@ -537,9 +546,12 @@ model deposite_transactions {
   is_admin_receive   Int       @default(0) @db.TinyInt
   network_type       String?
   updated_by         BigInt?
+  coin_id            Int       @db.UnsignedInt
+  network_id         Int       @db.UnsignedInt
   confirmations      Int       @default(0)
   created_at         DateTime? @db.Timestamp(0)
   updated_at         DateTime? @db.Timestamp(0)
+  block_number       String?
 }
 
 model dynamic_menus {
@@ -1398,16 +1410,15 @@ model password_resets {
 }
 
 model permission_from_data {
-  id         BigInt                      @id @default(autoincrement()) @db.UnsignedBigInt
-  group      String                      @db.VarChar(50)
-  action     String                      @db.VarChar(50)
-  for        String                      @db.VarChar(50)
-  route      String                      @db.VarChar(50)
-  status     permission_from_data_status @default(ACTIVE)
-  created_at DateTime?                   @db.Timestamp(0)
-  updated_at DateTime?                   @db.Timestamp(0)
+  id         BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  group      String    @db.VarChar(50)
+  action     String    @db.VarChar(50)
+  for        String    @db.VarChar(50)
+  route      String    @db.VarChar(50)
+  status     Int       @default(1) @db.SmallInt
+  created_at DateTime? @db.Timestamp(0)
+  updated_at DateTime? @db.Timestamp(0)
 }
-
 
 model permissions {
   id         BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
@@ -2004,11 +2015,11 @@ model users {
   gender                                                      Int                     @default(1) @db.TinyInt
   birth_date                                                  String?
   photo                                                       String?
-  g2f_enabled                                                 users_g2f_enabled
+  g2f_enabled                                                 Int                     @default(0) @db.SmallInt
   google2fa_secret                                            String?
-  phone_enabled                                               users_phone_enabled
+  phone_enabled                                               Int                     @default(0) @db.SmallInt
   otp_code                                                    String?                 @db.VarChar(10)
-  email_enabled                                               users_email_enabled
+  email_enabled                                               Int                     @default(0) @db.SmallInt
   is_verified                                                 Int                     @default(0) @db.TinyInt
   password                                                    String
   language                                                    String                  @default("en")
@@ -2049,6 +2060,8 @@ model verification_details {
 
 model wallet_address_histories {
   id         BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id    Int       @db.UnsignedInt
+  network_id Int       @db.UnsignedInt
   wallet_id  BigInt
   address    String
   coin_type  String    @default("BTC")
@@ -2154,22 +2167,85 @@ model withdraw_histories {
   @@index([wallet_id], map: "withdraw_histories_wallet_id_foreign")
 }
 
-enum permission_from_data_status {
-  ACTIVE @map("0")
-  INACTIVE @map("1")
+model admin_network_balances {
+  id         BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  key_id     String
+  coin_id    Int       @db.UnsignedInt
+  balance    Decimal   @db.Decimal(29, 18)
+  created_at DateTime? @db.Timestamp(0)
+  updated_at DateTime? @db.Timestamp(0)
 }
 
-enum users_g2f_enabled {
- active @map("0")
-  inactive @map("1")
+model admin_wallet_keys {
+  id         BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  uid        String
+  network_id Int       @db.UnsignedInt
+  address    String
+  pv         String
+  status     Int       @default(1) @db.TinyInt
+  created_at DateTime? @db.Timestamp(0)
+  updated_at DateTime? @db.Timestamp(0)
 }
 
-enum users_phone_enabled {
-  active @map("0")
-  inactive @map("1")
+model coin_networks {
+  id               BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  uid              String
+  network_id       Int       @db.UnsignedInt
+  currency_id      Int       @db.UnsignedInt
+  type             String
+  contract_address String
+  status           Int       @default(0) @db.TinyInt
+  created_at       DateTime? @db.Timestamp(0)
+  updated_at       DateTime? @db.Timestamp(0)
 }
 
-enum users_email_enabled {
- active @map("0")
-  inactive @map("1")
+model network_balances {
+  id                BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  wallet_address_id Int       @db.UnsignedInt
+  coin_network_id   Int       @db.UnsignedInt
+  balance           Decimal   @default(0.000000000000000000) @db.Decimal(29, 18)
+  created_at        DateTime? @db.Timestamp(0)
+  updated_at        DateTime? @db.Timestamp(0)
+}
+
+model networks {
+  id                 BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  name               String
+  description        String?
+  slug               String
+  block_confirmation String?
+  base_type          Int       @db.TinyInt
+  rpc_url            String
+  wss_url            String?
+  explorer_url       String?
+  chain_id           String
+  status             Int       @default(1) @db.TinyInt
+  logo               String?
+  created_at         DateTime? @db.Timestamp(0)
+  updated_at         DateTime? @db.Timestamp(0)
+}
+
+model notified_blocks {
+  id           BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  network_id   Int       @db.UnsignedInt
+  block_number String
+  node_block   String
+  error        String
+  created_at   DateTime? @db.Timestamp(0)
+  updated_at   DateTime? @db.Timestamp(0)
+}
+
+model user_withdrawal_addresses {
+  id           BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  uid          String
+  user_id      Int       @db.UnsignedInt
+  label        String?
+  currency_id  Int       @db.UnsignedInt
+  network_id   Int       @db.UnsignedInt
+  address      String
+  is_universal Int       @default(1) @db.TinyInt
+  status       Int       @default(1) @db.TinyInt
+  memo         String?
+  created_at   DateTime? @db.Timestamp(0)
+  updated_at   DateTime? @db.Timestamp(0)
 }
