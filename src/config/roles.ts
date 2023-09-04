@@ -1,9 +1,9 @@
-import { Role } from '@prisma/client';
+// import { Role } from '@prisma/client';
 
-const allRoles = {
-  [Role.USER]: [],
-  [Role.ADMIN]: ['getUsers', 'manageUsers']
-};
+// const allRoles = {
+//   [Role.USER]: [],
+//   [Role.ADMIN]: ['getUsers', 'manageUsers']
+// };
 
-export const roles = Object.keys(allRoles);
-export const roleRights = new Map(Object.entries(allRoles));
+// export const roles = Object.keys(allRoles);
+// export const roleRights = new Map(Object.entries(allRoles));
