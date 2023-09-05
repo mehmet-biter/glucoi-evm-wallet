@@ -5,8 +5,9 @@ import createEthAddress from "./web3.service";
 
 const prisma = new PrismaClient();
 
-const createAddress = async (coinType: any, network: number) => {
-  const user = ""
+const createAddress = async (user:any,coinType: any, network: number) => {
+  console.log(user);
+
     const getNetwork = await prisma.networks.findFirst({
         where: {
             id: network,
@@ -17,7 +18,7 @@ const createAddress = async (coinType: any, network: number) => {
   if (getNetwork) {
     let wallet = generateErrorResponse("Invalid base type");
     if (getNetwork.base_type == EVM_BASE_COIN) {
-        wallet = await createEthAddress(coinType, network);
+        // wallet = await createEthAddress(coinType, network);
           // if (wallet) {
           //     return generateSuccessResponse("Wallet created successfully",wallet);
           //   } else {
