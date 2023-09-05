@@ -1,5 +1,5 @@
 export interface ResponseData {
-    status_code:number;
+    success: boolean;
     message: String;
     data: any;
 }
@@ -10,9 +10,17 @@ export interface JwtResponseData {
 }
   
 
-export function generateResponse(statusCode: number, message: string, data?: any): ResponseData {
+export function generateSuccessResponse( message: string, data?: any): ResponseData {
     return {
-      status_code: statusCode,
+      success: true,
+      message: message,
+      data: data,
+    };
+}
+
+export function generateErrorResponse( message: string, data?: any): ResponseData {
+    return {
+      success: true,
       message: message,
       data: data,
     };

@@ -15,7 +15,7 @@ export const successResponse = (
 ) => {
   res.json({
     success: true,
-    message: message ? message : "Response successfull",
+    message: message ? message : "Response successful",
     data,
   });
 };
