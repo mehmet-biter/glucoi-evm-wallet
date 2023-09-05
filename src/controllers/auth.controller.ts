@@ -15,9 +15,9 @@ const prisma = new PrismaClient();
 const secret = process.env.JWT_SECRET ?? "";
 
 const test = catchAsync(async (req, res) => {
-  const data = "api worked fine";
+  const message = "api worked fine";
 
-  res.status(200).json({ data: data });
+  return successResponse(res, message, req.user);
 });
 
 type Login = { email: String };
@@ -27,8 +27,8 @@ const login = async (req: Request, res: Response) => {
     const { email } = req.body;
 
     const response: ResponseData = await authService.loginUserWithEmail(email);
-    console.log(response.status_code);
-    res.status(response.status_code).json({ response });
+
+    return successResponse(res, response.message, response.data);
   } catch (error) {
     res.status(500).json({ error: "Internal server error" });
   }

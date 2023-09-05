@@ -1,6 +1,6 @@
 export interface ResponseData {
     success: boolean;
-    message: String;
+    message: string;
     data: any;
 }
 

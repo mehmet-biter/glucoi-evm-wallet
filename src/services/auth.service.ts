@@ -1,32 +1,35 @@
-import { PrismaClient } from '@prisma/client';
-import jwt from 'jsonwebtoken';
-import { ResponseData,JwtResponseData, generateResponse} from '../utils/commonObject';
-import { Request, Response } from 'express';
-import { number, string } from 'joi';
+import { PrismaClient } from "@prisma/client";
+import jwt from "jsonwebtoken";
+import {
+  ResponseData,
+  JwtResponseData,
+  generateSuccessResponse,
+  generateErrorResponse,
+} from "../utils/commonObject";
+import { Request, Response } from "express";
+import { number, string } from "joi";
 
 const prisma = new PrismaClient();
-const secret = process.env.JWT_SECRET ??'';
+const secret = process.env.JWT_SECRET ?? "";
 interface JwtResponse {
   code: number;
   message: string;
 }
 
-const loginUserWithEmail = async (email : string) => {
-  var responseData:ResponseData;
+const loginUserWithEmail = async (email: string) => {
+  var responseData: ResponseData;
   var statusCode;
   var message;
   var data = {};
 
-  try{
-    
+  try {
     const userDetails = await prisma.users.findUnique({
       where: {
-        email: email
-      }
+        email: email,
+      },
     });
-    
-    if(userDetails)
-    {
+
+    if (userDetails) {
       var userData = {
         id: userDetails.id.toString(),
         first_name: userDetails.first_name,
@@ -37,77 +40,75 @@ const loginUserWithEmail = async (email : string) => {
         role_id: userDetails.role_id,
         super_admin: userDetails.super_admin,
         status: userDetails.status,
-      }
+      };
 
-      var token = jwt.sign({ 
-        user_details: userData
-       }, secret);
+      var token = jwt.sign(
+        {
+          user_details: userData,
+        },
+        secret
+      );
 
       data = {
         user_details: userData,
-        token:token
+        token: token,
       };
 
-      statusCode = 200;
-      message = 'User login token is generated successfully!';
-      
+      return generateSuccessResponse(
+        "User login token is generated successfully!",
+        data
+      );
     } else {
-      
-      statusCode = 404;
-      message = 'User login token is not generated!';
-    
+      return generateErrorResponse("User login token is not generated!");
     }
-  }catch(error){
-    statusCode = 500;
-    message = 'Something went wrong!';
+  } catch (error) {
+    return generateErrorResponse("Something went wrong!");
   }
-
-  return generateResponse(statusCode,message,data);
-}
-function verifyTokenAndGetResponse(token: string, secret: string): JwtResponseData {
+};
+function verifyTokenAndGetResponse(
+  token: string,
+  secret: string
+): JwtResponseData {
   try {
     const decoded = jwt.verify(token, secret);
     return {
       code: 200,
-      message: 'Token is Verified!'
+      message: "Token is Verified!",
     };
   } catch (err) {
     return {
       code: 403,
-      message: 'Unauthorized!'
+      message: "Unauthorized!",
     };
   }
 }
 
-const verifyToken = async (request:Request) => {
+const verifyToken = async (request: Request) => {
   var statusCode;
   var message;
 
-  try{
-    const {token} = request.headers;
-    
+  try {
+    const { token } = request.headers;
+
     const jwtResponse = verifyTokenAndGetResponse(<string>token, secret);
 
     statusCode = jwtResponse.code;
     message = jwtResponse.message;
-
-  }catch(error){
+  } catch (error) {
     statusCode = 500;
-    message = 'Something went wrong!';
+    message = "Something went wrong!";
   }
-  return generateResponse(statusCode, message);
-}
+  return generateSuccessResponse(message);
+};
 /**
  * Logout
  * @param {string} refreshToken
  * @returns {Promise<void>}
  */
-const logout = async (refreshToken: string): Promise<void> => {
-  
-};
+const logout = async (refreshToken: string): Promise<void> => {};
 
 export default {
   loginUserWithEmail,
   logout,
-  verifyToken
+  verifyToken,
 };

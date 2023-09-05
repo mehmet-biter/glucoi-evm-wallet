@@ -12,7 +12,9 @@ const auth = () => async (req: Request, res: Response, next: NextFunction) => {
     return new Promise((resolve, reject) => {
       jwt.verify(<string>token, secret, (err, user) => {
         if (err) return reject(errorResponse(res, "Token invalid"));
+        req.user = user;
       });
+
       next();
     });
   } catch (error) {
