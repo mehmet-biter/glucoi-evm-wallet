@@ -25,10 +25,7 @@ const createAddress = async (user:any,coinType: any, network: number) => {
     } else {
       wallet = generateErrorResponse("Invalid base type");
     }
-
-  } else {
-    return generateErrorResponse("Network not found");
-  } 
+  }
   return generateErrorResponse("Network not found"); 
 };
 
