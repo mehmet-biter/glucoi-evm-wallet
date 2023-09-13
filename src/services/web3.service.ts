@@ -22,10 +22,21 @@ const initializeWeb3 = async (coinType: any, network:number) => {
   return connectWeb3;
 };
 
-const createEthAddress = async (coinType: any, network: number) => {
+export const createEthAddress = async (coinType: any, network: number) => {
     
     const connectWeb3: any = await initializeWeb3(coinType, network);
     let wallet = await connectWeb3.eth.accounts.create();
+  if (wallet) {
+    return generateSuccessResponse("Wallet created successfully", wallet);
+  } else {
+    return generateErrorResponse("Wallet not generated"); 
+  }
+};
+
+export const createEvmAddress = async (rpcUrl: string|null) => {
+  rpcUrl = rpcUrl || "/";
+  const connectWeb3: any = new Web3(new Web3.providers.HttpProvider(rpcUrl));
+  let wallet = await connectWeb3.eth.accounts.create();
   if (wallet) {
     return generateSuccessResponse("Wallet created successfully", wallet);
   } else {
@@ -33,4 +44,4 @@ const createEthAddress = async (coinType: any, network: number) => {
   }
 };
 
-export default createEthAddress;
+export default {createEthAddress,createEvmAddress};
