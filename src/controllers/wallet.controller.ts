@@ -1,4 +1,4 @@
-import createAddress from "../services/wallet.service";
+import { createAddress, createSystemAddress } from "../services/wallet.service";
 import { errorResponse, processException, successResponse } from "../utils/common"
 import { Request, Response } from "express";
 
@@ -14,8 +14,22 @@ const createWallet = async (req: Request, res: Response) => {
     } catch (err) {
         processException(res, err)
     }
-} 
+}
+
+const createSystemWallet = async (req: Request, res: Response) => {
+    try {
+        const wallet:any = await createSystemAddress(req.user,req.body.network);
+        if (wallet.success) {
+            return successResponse(res,wallet.message,wallet.data)
+        } else {
+            return errorResponse(res, wallet.message, wallet.data);
+        }
+    } catch (err) {
+        processException(res, err)
+    }
+}
 
 export default {
     createWallet,
+    createSystemWallet,
 }
