@@ -87,8 +87,20 @@ const getEthTokenBalance = async (coinType: string, network: number, address:str
   }
 }
 
+const createEvmAddress = async (rpcUrl: string|null) => {
+  rpcUrl = rpcUrl || "/";
+  const connectWeb3: any = new Web3(new Web3.providers.HttpProvider(rpcUrl));
+  let wallet = await connectWeb3.eth.accounts.create();
+  if (wallet) {
+    return generateSuccessResponse("Wallet created successfully", wallet);
+  } else {
+    return generateErrorResponse("Wallet not generated");
+  }
+};
+
 export default [
   createEthAddress,
   getEthBalance,
-  getEthTokenBalance
+  getEthTokenBalance,
+  createEvmAddress
 ];
