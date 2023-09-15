@@ -1,7 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { EVM_BASE_COIN, STATUS_ACTIVE } from "../utils/coreConstant";
 import { generateErrorResponse, generateSuccessResponse } from "../utils/commonObject";
-import createEthAddress from "./evm/erc20.web3.service";
+import { createEthAddress, createEvmAddress } from "./evm/erc20.web3.service";
 
 const prisma = new PrismaClient();
 

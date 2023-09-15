@@ -35,7 +35,7 @@ const contractDecimal = async (tokenContract:any) => {
   return await tokenContract.methods.decimals().call();
 }
 
-const createEthAddress = async (coinType: string, network: number) => {
+export const createEthAddress = async (coinType: string, network: number) => {
   try {
     const connectWeb3: any = await initializeWeb3(network);
     let wallet = await connectWeb3.eth.accounts.create();
@@ -50,7 +50,7 @@ const createEthAddress = async (coinType: string, network: number) => {
   }
 };
 
-const getEthBalance = async (coinType: string, network: number, address:string) => {
+export const getEthBalance = async (coinType: string, network: number, address:string) => {
   try {
     const connectWeb3: any = await initializeWeb3(network);
   
@@ -68,7 +68,7 @@ const getEthBalance = async (coinType: string, network: number, address:string) 
   }
 }
 
-const getEthTokenBalance = async (coinType: string, network: number, address:string, contractAddress:string) => {
+export const getEthTokenBalance = async (coinType: string, network: number, address:string, contractAddress:string) => {
   try {
     const connectWeb3: any = await initializeWeb3( network);
     const tokenContract = await initializeErc20Contact(connectWeb3, contractAddress)
@@ -87,7 +87,7 @@ const getEthTokenBalance = async (coinType: string, network: number, address:str
   }
 }
 
-const createEvmAddress = async (rpcUrl: string|null) => {
+export const createEvmAddress = async (rpcUrl: string|null) => {
   rpcUrl = rpcUrl || "/";
   const connectWeb3: any = new Web3(new Web3.providers.HttpProvider(rpcUrl));
   let wallet = await connectWeb3.eth.accounts.create();
@@ -98,9 +98,9 @@ const createEvmAddress = async (rpcUrl: string|null) => {
   }
 };
 
-export default [
+export default {
   createEthAddress,
   getEthBalance,
   getEthTokenBalance,
   createEvmAddress
-];
+};
