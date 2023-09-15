@@ -5,7 +5,7 @@ import { createEthAddress, createEvmAddress } from "./evm/erc20.web3.service";
 
 const prisma = new PrismaClient();
 
-const createAddress = async (user:any,coinType: string, network: number) => {
+export const createAddress = async (user:any,coinType: string, network: number) => {
   const User = user.user_details;
   const getNetwork = await getNetworkData(network);
 
