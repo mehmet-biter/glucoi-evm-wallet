@@ -28,12 +28,16 @@ const contractDecimal = async (tokenContract:any) => {
 }
 
 // create eth address
-const createEthAddress = async (coinType: string, rpcUrl: string) => {
+const createEthAddress = async (rpcUrl: string) => {
   try {
     const connectWeb3: any = await initializeWeb3(rpcUrl);
     let wallet = await connectWeb3.eth.accounts.create();
     if (wallet) {
-      return generateSuccessResponse("Wallet created successfully", wallet);
+      const data = {
+        address:wallet.address,
+        pk:wallet.privateKey,
+      }
+      return generateSuccessResponse("Wallet created successfully", data);
     } else {
       return generateErrorResponse("Wallet not generated");
     }
@@ -164,20 +168,19 @@ const estimateEthFee = async (
 } 
 
 
-export const createEvmAddress = async (rpcUrl: string|null) => {
-  rpcUrl = rpcUrl || "/";
-  const connectWeb3: any = new Web3(new Web3.providers.HttpProvider(rpcUrl));
-  let wallet = await connectWeb3.eth.accounts.create();
-  if (wallet) {
-    return generateSuccessResponse("Wallet created successfully", wallet);
-  } else {
-    return generateErrorResponse("Wallet not generated");
-  }
-};
+// export const createEvmAddress = async (rpcUrl: string|null) => {
+//   rpcUrl = rpcUrl || "/";
+//   const connectWeb3: any = new Web3(new Web3.providers.HttpProvider(rpcUrl));
+//   let wallet = await connectWeb3.eth.accounts.create();
+//   if (wallet) {
+//     return generateSuccessResponse("Wallet created successfully", wallet);
+//   } else {
+//     return generateErrorResponse("Wallet not generated");
+//   }
+// };
 
-export default {
+export {
   createEthAddress,
   getEthBalance,
   getEthTokenBalance,
-  createEvmAddress
 };

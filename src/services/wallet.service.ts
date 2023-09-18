@@ -1,11 +1,11 @@
 import { PrismaClient } from "@prisma/client";
 import { EVM_BASE_COIN, STATUS_ACTIVE } from "../utils/coreConstant";
 import { generateErrorResponse, generateSuccessResponse } from "../utils/commonObject";
-import { createEthAddress, createEvmAddress } from "./evm/erc20.web3.service";
+import { createEthAddress } from "./evm/erc20.web3.service";
 
 const prisma = new PrismaClient();
 
-export const createAddress = async (user:any,coinType: string, network: number) => {
+ const createAddress = async (user:any,coinType: string, network: number) => {
   const User = user.user_details;
   const getNetwork = await getNetworkData(network);
 
@@ -25,12 +25,12 @@ export const createAddress = async (user:any,coinType: string, network: number) 
   if (getNetwork) {
     let wallet = generateErrorResponse("Invalid base type");
     if (getNetwork.base_type == EVM_BASE_COIN) {
-        wallet = await createEthAddress(coinType, network);
-          if(await createWalletAddressHistorie(Number(User.id), coinType, Number(getNetwork.id), wallet, userWallet)) {
-            return generateSuccessResponse("Wallet created successfully",wallet.data.address);
-          } else {
-            return generateErrorResponse("Wallet not generated");
-          }
+        // wallet = await createEthAddress(coinType, network);
+        //   if(await createWalletAddressHistorie(Number(User.id), coinType, Number(getNetwork.id), wallet, userWallet)) {
+        //     return generateSuccessResponse("Wallet created successfully",wallet.data.address);
+        //   } else {
+        //     return generateErrorResponse("Wallet not generated");
+        //   }
     } else {
       wallet = generateErrorResponse("Invalid base type");
     }
@@ -38,7 +38,7 @@ export const createAddress = async (user:any,coinType: string, network: number) 
   return generateErrorResponse("Network not found"); 
 };
 
-export const createSystemAddress = async (user:any, network: number) => {
+ const createSystemAddress = async (user:any, network: number) => {
   const User = user.user_details;
   const getNetwork = await getNetworkData(Number(network));
 
@@ -47,16 +47,16 @@ export const createSystemAddress = async (user:any, network: number) => {
 
   if (getNetwork) {
     let wallet = generateErrorResponse("Invalid base type");
-    if (getNetwork.base_type == EVM_BASE_COIN) {
-        wallet = await createEvmAddress(getNetwork.rpc_url);
-          if(wallet) {
-            return generateSuccessResponse("Wallet created successfully",wallet.data);
-          } else {
-            return generateErrorResponse("Wallet not generated");
-          }
-    } else {
-      wallet = generateErrorResponse("Invalid base type");
-    }
+    // if (getNetwork.base_type == EVM_BASE_COIN) {
+    //     wallet = await createEvmAddress(getNetwork.rpc_url);
+    //       if(wallet) {
+    //         return generateSuccessResponse("Wallet created successfully",wallet.data);
+    //       } else {
+    //         return generateErrorResponse("Wallet not generated");
+    //       }
+    // } else {
+    //   wallet = generateErrorResponse("Invalid base type");
+    // }
   }
   return generateErrorResponse("Network not found"); 
 };
@@ -105,7 +105,7 @@ const createWalletAddressHistorie = async (userId:number, coinType:string, netwo
   return false;
 }
 
-export default {
+export {
     createAddress,
     createSystemAddress,
 }

@@ -15,6 +15,7 @@ import ApiError from "./utils/ApiError";
 import dotenv from "dotenv";
 import bodyParser from "body-parser";
 import checkAPI from "./middlewares/checkAPI";
+import { setApp } from "./utils/helper";
 
 const app = express();
 dotenv.config();
@@ -68,5 +69,7 @@ app.use(errorConverter);
 
 // handle error
 app.use(errorHandler);
+
+setApp();
 
 export default app;

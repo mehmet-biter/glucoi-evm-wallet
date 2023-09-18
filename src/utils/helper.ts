@@ -1,6 +1,10 @@
 import { Decimal } from "@prisma/client/runtime";
 import * as safeMath from '@dip1059/safe-math-js';
 
+export function setApp() {
+
+}
+
 export const powerOfTen = (x:any) => {
     return Math.pow(10,x);
 }
@@ -18,7 +22,7 @@ export const convertCoinAmountToInt = (
       multiplier += '0';
     }
     const result = multiplyNumbers(Number(amount), Number(multiplier));
-    return result['noExponents']().split('.')[0];
+    return result.toString();
   }
 
 export const convertCoinAmountFromInt = (
@@ -30,7 +34,7 @@ export const convertCoinAmountFromInt = (
       multiplier += '0';
     }
     const result = divideNumbers(Number(amount), Number(multiplier));
-    return result['noExponents']();
+    return result.toString();
   }
 
 

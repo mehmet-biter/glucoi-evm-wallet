@@ -1,10 +1,10 @@
-import { createAddress, createSystemAddress } from "../services/wallet.service";
 import { errorResponse, processException, successResponse } from "../utils/common"
 import { Request, Response } from "express";
 
 
 import BigNumber from "bignumber.js";
 import Web3 from "web3";
+import { createAddress, createSystemAddress } from "../services/wallet.service";
 
 
 const createWallet = async (req: Request, res: Response) => {
