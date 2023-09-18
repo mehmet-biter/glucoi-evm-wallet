@@ -20,7 +20,7 @@ export function generateSuccessResponse( message: string, data?: any): ResponseD
 
 export function generateErrorResponse( message: string, data?: any): ResponseData {
     return {
-      success: true,
+      success: false,
       message: message,
       data: data,
     };

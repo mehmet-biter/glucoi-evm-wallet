@@ -25,12 +25,12 @@ const prisma = new PrismaClient();
   if (getNetwork) {
     let wallet = generateErrorResponse("Invalid base type");
     if (getNetwork.base_type == EVM_BASE_COIN) {
-        // wallet = await createEthAddress(coinType, network);
-        //   if(await createWalletAddressHistorie(Number(User.id), coinType, Number(getNetwork.id), wallet, userWallet)) {
-        //     return generateSuccessResponse("Wallet created successfully",wallet.data.address);
-        //   } else {
-        //     return generateErrorResponse("Wallet not generated");
-        //   }
+        wallet = await createEthAddress(getNetwork.rpc_url ?? '/');
+          if(await createWalletAddressHistorie(Number(User.id), coinType, Number(getNetwork.id), wallet, userWallet)) {
+            return generateSuccessResponse("Wallet created successfully",wallet.data.address);
+          } else {
+            return generateErrorResponse("Wallet not generated");
+          }
     } else {
       wallet = generateErrorResponse("Invalid base type");
     }
@@ -47,16 +47,16 @@ const prisma = new PrismaClient();
 
   if (getNetwork) {
     let wallet = generateErrorResponse("Invalid base type");
-    // if (getNetwork.base_type == EVM_BASE_COIN) {
-    //     wallet = await createEvmAddress(getNetwork.rpc_url);
-    //       if(wallet) {
-    //         return generateSuccessResponse("Wallet created successfully",wallet.data);
-    //       } else {
-    //         return generateErrorResponse("Wallet not generated");
-    //       }
-    // } else {
-    //   wallet = generateErrorResponse("Invalid base type");
-    // }
+    if (getNetwork.base_type == EVM_BASE_COIN) {
+        wallet = await createEthAddress(getNetwork.rpc_url ?? '/');
+          if(wallet && wallet?.success) {
+            return generateSuccessResponse("Wallet created successfully",wallet.data);
+          } else {
+            return generateErrorResponse("Wallet not generated");
+          }
+    } else {
+      wallet = generateErrorResponse("Invalid base type");
+    }
   }
   return generateErrorResponse("Network not found"); 
 };
@@ -95,7 +95,7 @@ const createWalletAddressHistorie = async (userId:number, coinType:string, netwo
         coin_type : coinType,
         network_id : networkId,
         wallet_id : Number(userWallet?.id),
-        wallet_key : wallet.data.privateKey,
+        wallet_key : wallet.data.pk,
         address : wallet.data.address,
       }
     });
