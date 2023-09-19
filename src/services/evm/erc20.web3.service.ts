@@ -3,8 +3,8 @@ import Web3 from "web3";
 import { EVM_BASE_COIN, STATUS_ACTIVE } from "../../utils/coreConstant";
 import { generateErrorResponse, generateSuccessResponse } from "../../utils/commonObject";
 import { ERC20_ABI } from "../../contract/erc20.token.abi";
-import { addNumbers, convertCoinAmountFromInt, convertCoinAmountToInt, customFromWei, minusNumbers, multiplyNumbers } from "../../utils/helper";
-import { TransactionConfig } from 'web3-core';
+import { REGEX, addNumbers, convertCoinAmountFromInt, convertCoinAmountToInt, customFromWei, minusNumbers, multiplyNumbers, sleep } from "../../utils/helper";
+import { TransactionConfig, TransactionReceipt, Transaction } from 'web3-core';
 
 
 const prisma = new PrismaClient();
@@ -202,10 +202,131 @@ const sendEthCoin = async (
       return generateErrorResponse(response.message);
     }  
 
+    let nonce = await connectWeb3.eth.getTransactionCount(fromAddress,'latest');
+    tx.nonce = nonce;
+    const txObj = await executeEthTransaction(
+      tx,
+      connectWeb3,
+      pk,
+      coinType,
+    );
+
+
   } catch(err) {
     console.log(err); 
     return generateErrorResponse("Something went wrong")
   }
+}
+
+// execute eth transaction
+const executeEthTransaction = async(
+  tx:TransactionConfig,
+  connectWeb3:any,
+  pk:string,
+  coin_type:string,
+  blockConfirmation = 0,
+  waitForConfirm = false,
+) => {
+  const signedTx = await connectWeb3.eth.accounts.signTransaction(tx, pk);
+  let txObj: TransactionReceipt = {
+    status: false,
+    transactionHash: '',
+    transactionIndex: 0,
+    blockHash: '',
+    blockNumber: 0,
+    from: '',
+    to: '',
+    cumulativeGasUsed: 0,
+    gasUsed: 0,
+    logs: [],
+    logsBloom: '',
+  };
+  try {
+    txObj = await connectWeb3.eth.sendSignedTransaction(signedTx.rawTransaction);
+  } catch(e:any) {
+    if (!e.message.includes('Transaction was not mined within')) {
+      console.error(
+        `coin send error on network: ${coin_type}, tx hash: ${signedTx.transactionHash}`,
+      );
+      console.error(e.stack);
+      throw e;
+    } else {
+      txObj.transactionHash = signedTx.transactionHash;
+      return txObj;
+    }
+  }
+  if (waitForConfirm) {
+    await waitForTxConfirmed(txObj, connectWeb3, blockConfirmation);
+  }
+  return txObj;
+}
+
+
+// wait for tx confirmed
+const waitForTxConfirmed = async(
+  txObj: TransactionReceipt,
+  connectWeb3:any,
+  blockConfirmation:number
+) => {
+  try {
+    let confirmations = 0;
+    while (confirmations < blockConfirmation) {
+      await sleep(15000); // sleep 15 sec
+
+      const currentBlock = await connectWeb3.eth.getBlockNumber();
+      confirmations = currentBlock - txObj.blockNumber;
+    }
+    const tx = await connectWeb3.eth.getTransaction(txObj.transactionHash);
+    if (!tx) return generateErrorResponse(`Transaction Failed: ${txObj.transactionHash}`);
+    return;
+  } catch(e:any) {
+    console.log(e.stack)
+  }
+}
+
+const getTransaction = async(rpcUrl:string,txHash:string): Promise<any> => {
+  try {
+    const connectWeb3 = await initializeWeb3(rpcUrl);
+    const txObj = await connectWeb3.eth.getTransaction(txHash);
+    return txObj;
+  } catch(e) {
+    console.log(e);
+    return null;
+  }
+}
+
+const getConfirmedTransaction = async(rpcUrl:string,txHash: string): Promise<any> => {
+  try {
+    const connectWeb3 = await initializeWeb3(rpcUrl);
+    const txObj = await connectWeb3.eth.getTransactionReceipt(txHash);
+    return txObj;
+  } catch (e) {
+    return null;
+  }
+}
+
+const getTransactionReceipt = async(rpcUrl:string,txHash: string): Promise<any> => {
+  try {
+    const connectWeb3 = await initializeWeb3(rpcUrl);
+    const txObj = await connectWeb3.eth.getTransactionReceipt(txHash);
+    return txObj;
+  } catch (e) {
+    return null;
+  }
+}
+
+const getBlockNumber = async(rpcUrl:string): Promise<string | number>  => {
+  const connectWeb3 = await initializeWeb3(rpcUrl);
+  return await connectWeb3.eth.getBlockNumber();
+}
+
+const validateAddress = async (rpcUrl:string, address: string): Promise<boolean> => {
+  const connectWeb3 = await initializeWeb3(rpcUrl);
+  return connectWeb3.utils.isAddress(address);
+}
+
+const validateTxHash = async (txHash: string): Promise<boolean> =>{
+  return new RegExp(REGEX.ETH_TXHASH).test(txHash);
 }
 
 
@@ -225,4 +346,11 @@ export {
   getEthBalance,
   getEthTokenBalance,
   estimateEthFee,
+  sendEthCoin,
+  getTransaction,
+  getConfirmedTransaction,
+  getTransactionReceipt,
+  getBlockNumber,
+  validateAddress,
+  validateTxHash
 };

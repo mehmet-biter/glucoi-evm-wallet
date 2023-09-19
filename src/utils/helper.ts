@@ -57,3 +57,13 @@ export const convertCoinAmountFromInt = (
   export const formatAmountDecimal = (amount: number, decimal: number): number  =>{
     return Number(amount.toFixed(decimal));
   }
+
+  export const sleep = async (delay_in_milisec: number) => {
+    await new Promise((resolve) => setTimeout(resolve, delay_in_milisec));
+    return;
+  }
+
+  export enum REGEX {
+    BTC_TXID = '^[a-fA-F0-9]{64}$',
+    ETH_TXHASH = '^0x[a-fA-F0-9]{64}$',
+  }
