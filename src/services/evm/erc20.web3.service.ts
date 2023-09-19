@@ -167,6 +167,47 @@ const estimateEthFee = async (
   }
 } 
 
+// send eth coin
+const sendEthCoin = async (
+  rpcUrl:string,
+  coinType:string, 
+  coinDecimal:any, 
+  gasLimit:any,
+  from_address:string,
+  to_address:string,
+  amount:any,
+  pk:string
+) => {
+  try {
+    const connectWeb3 = await initializeWeb3(rpcUrl);
+    const gasPrice = await connectWeb3.eth.getGasPrice();
+    const fromAddress = connectWeb3.utils.toChecksumAddress(from_address)
+
+    const tx: TransactionConfig = {
+      from: fromAddress,
+      to: connectWeb3.utils.toChecksumAddress(to_address),
+      value: convertCoinAmountToInt(amount, coinDecimal),
+      gasPrice: gasPrice.toString(),
+      gas: gasLimit.toString(),
+    };
+
+    const response = await estimateEthFee(rpcUrl,
+      coinType, 
+      coinDecimal, 
+      gasLimit,
+      from_address,
+      to_address,
+      amount);
+    if (response.success == false) {
+      return generateErrorResponse(response.message);
+    }  
+
+  } catch(err) {
+    console.log(err); 
+    return generateErrorResponse("Something went wrong")
+  }
+}
+
 
 // export const createEvmAddress = async (rpcUrl: string|null) => {
 //   rpcUrl = rpcUrl || "/";
@@ -183,4 +224,5 @@ export {
   createEthAddress,
   getEthBalance,
   getEthTokenBalance,
+  estimateEthFee,
 };
