@@ -1,5 +1,7 @@
 import { Decimal } from "@prisma/client/runtime";
 import * as safeMath from '@dip1059/safe-math-js';
+import BigNumber from "bignumber.js";
+import Web3 from "web3";
 
 export function setApp() {
 
@@ -11,6 +13,24 @@ export const powerOfTen = (x:any) => {
 
 export const customFromWei = async(amount:any,decimal:any) => {
     return (amount/powerOfTen(decimal)).toString();
+}
+
+function customToWei(amount:number,decimal:number)
+{
+  // return (amount*powerOfTen(decimal)).toString()
+  const isDecimal = !Number.isInteger(amount);
+  if (isDecimal) {
+    const tokenDecimals = new BigNumber(10).pow(decimal);
+    const tokenToSend = new BigNumber(amount).times(tokenDecimals);
+
+    return tokenToSend.toString();
+  } else {
+    const amountData = Web3.utils
+      .toBN(amount)
+      .mul(Web3.utils.toBN(10).pow(Web3.utils.toBN(decimal)));
+    
+    return amountData.toString();
+  }
 }
 
 export const convertCoinAmountToInt = (

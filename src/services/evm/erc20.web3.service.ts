@@ -16,17 +16,6 @@ const initializeWeb3 = async (rpcUrl:string) => {
   return connectWeb3;
 };
 
-// initialize contract
-const initializeErc20Contact = async (web3:any, contractAddress:string) => {
-  const tokenContract = new (await web3).eth.Contract(JSON.parse(ERC20_ABI), contractAddress);
-  return tokenContract;
-}
-
-// get contract decimal
-const contractDecimal = async (tokenContract:any) => {
-  return await tokenContract.methods.decimals().call();
-}
-
 // create eth address
 const createEthAddress = async (rpcUrl: string) => {
   try {
@@ -66,26 +55,6 @@ const getEthBalance = async (rpcUrl: string, address:string) => {
   }
 }
 
-// get eth token balance
-const getEthTokenBalance = async (rpcUrl: string, address:string, contractAddress:string) => {
-  try {
-    const connectWeb3: any = await initializeWeb3(rpcUrl);
-    const tokenContract = await initializeErc20Contact(connectWeb3, contractAddress)
-    let balance:any = 0;
-    const tokenBalance = await tokenContract.methods.balanceOf(address).call();
-    const tokenDecimal = await contractDecimal(tokenContract);
-    if (tokenBalance) {
-      balance = customFromWei(tokenBalance, tokenDecimal);
-      return generateSuccessResponse("Balance get successfully", balance);
-    } else {
-      return generateErrorResponse("Balance get failed", balance);
-    }
-  } catch (err) {
-    console.log(err);
-    return generateErrorResponse("Something went wrong");
-  }
-}
-
 // get estimate fees for eth
 const estimateEthFee = async (
   rpcUrl: string, 
@@ -94,7 +63,7 @@ const estimateEthFee = async (
   gasLimit:any, 
   fromAddress:string, 
   toAddress:string,
-  amount:any
+  amount:number
   ) => {
   try {
     const connectWeb3 = await initializeWeb3(rpcUrl);
@@ -172,10 +141,10 @@ const sendEthCoin = async (
   rpcUrl:string,
   coinType:string, 
   coinDecimal:any, 
-  gasLimit:any,
+  gasLimit:number,
   from_address:string,
   to_address:string,
-  amount:any,
+  amount:number,
   pk:string
 ) => {
   try {
@@ -344,7 +313,6 @@ const validateTxHash = async (txHash: string): Promise<boolean> =>{
 export {
   createEthAddress,
   getEthBalance,
-  getEthTokenBalance,
   estimateEthFee,
   sendEthCoin,
   getTransaction,
