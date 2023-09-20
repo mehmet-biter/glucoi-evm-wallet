@@ -7,17 +7,16 @@ export function setApp() {
 
 }
 
-export const powerOfTen = (x:any) => {
+export const powerOfTen = (x:number) => {
     return Math.pow(10,x);
 }
 
-export const customFromWei = async(amount:any,decimal:any) => {
+export const customFromWei = (amount:any,decimal:any) => {
     return (amount/powerOfTen(decimal)).toString();
 }
 
-function customToWei(amount:number,decimal:number)
+export const customToWei = (amount:number,decimal:number) =>
 {
-  // return (amount*powerOfTen(decimal)).toString()
   const isDecimal = !Number.isInteger(amount);
   if (isDecimal) {
     const tokenDecimals = new BigNumber(10).pow(decimal);

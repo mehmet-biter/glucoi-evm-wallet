@@ -38,10 +38,9 @@ const createEthAddress = async (rpcUrl: string) => {
 
 // get eth balance
 const getEthBalance = async (rpcUrl: string, address:string) => {
+  let balance:any = 0;
   try {
     const connectWeb3: any = await initializeWeb3(rpcUrl);
-  
-    let balance = '0';
     const netBalance = await connectWeb3.eth.getBalance(address);
     if (netBalance) {
       balance = Web3.utils.fromWei(netBalance.toString(), 'ether');
@@ -51,7 +50,7 @@ const getEthBalance = async (rpcUrl: string, address:string) => {
     }
   } catch (err) {
     console.log(err);
-    return generateErrorResponse("Something went wrong");
+    return generateErrorResponse("Something went wrong", balance);
   }
 }
 
@@ -72,8 +71,8 @@ const estimateEthFee = async (
     let message = '';
 
     const tx: TransactionConfig = {
-      from: connectWeb3.utils.toChecksumAddress(fromAddress),
-      to: connectWeb3.utils.toChecksumAddress(toAddress),
+      from: Web3.utils.toChecksumAddress(fromAddress),
+      to: Web3.utils.toChecksumAddress(toAddress),
       value: convertCoinAmountToInt(amount,coinDecimal),
       gasPrice: gasPrice.toString(),
       gas: gasLimit.toString()
@@ -150,11 +149,11 @@ const sendEthCoin = async (
   try {
     const connectWeb3 = await initializeWeb3(rpcUrl);
     const gasPrice = await connectWeb3.eth.getGasPrice();
-    const fromAddress = connectWeb3.utils.toChecksumAddress(from_address)
+    const fromAddress = Web3.utils.toChecksumAddress(from_address)
 
     const tx: TransactionConfig = {
       from: fromAddress,
-      to: connectWeb3.utils.toChecksumAddress(to_address),
+      to: Web3.utils.toChecksumAddress(to_address),
       value: convertCoinAmountToInt(amount, coinDecimal),
       gasPrice: gasPrice.toString(),
       gas: gasLimit.toString(),
@@ -179,7 +178,7 @@ const sendEthCoin = async (
       pk,
       coinType,
     );
-
+    return txObj; 
 
   } catch(err) {
     console.log(err); 
@@ -218,16 +217,16 @@ const executeEthTransaction = async(
         `coin send error on network: ${coin_type}, tx hash: ${signedTx.transactionHash}`,
       );
       console.error(e.stack);
-      throw e;
+      return generateErrorResponse(e.message,"");
     } else {
       txObj.transactionHash = signedTx.transactionHash;
-      return txObj;
+      return generateErrorResponse(e.message,txObj);
     }
   }
   if (waitForConfirm) {
     await waitForTxConfirmed(txObj, connectWeb3, blockConfirmation);
   }
-  return txObj;
+  return generateSuccessResponse('Coin send successfully',txObj);;
 }
 
 
@@ -291,7 +290,7 @@ const getBlockNumber = async(rpcUrl:string): Promise<string | number>  => {
 
 const validateAddress = async (rpcUrl:string, address: string): Promise<boolean> => {
   const connectWeb3 = await initializeWeb3(rpcUrl);
-  return connectWeb3.utils.isAddress(address);
+  return Web3.utils.isAddress(address);
 }
 
 const validateTxHash = async (txHash: string): Promise<boolean> =>{
@@ -320,5 +319,6 @@ export {
   getTransactionReceipt,
   getBlockNumber,
   validateAddress,
-  validateTxHash
+  validateTxHash,
+  executeEthTransaction
 };

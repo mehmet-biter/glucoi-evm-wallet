@@ -3,8 +3,9 @@ import Web3 from "web3";
 import { EVM_BASE_COIN, STATUS_ACTIVE } from "../../utils/coreConstant";
 import { generateErrorResponse, generateSuccessResponse } from "../../utils/commonObject";
 import { ERC20_ABI } from "../../contract/erc20.token.abi";
-import { REGEX, addNumbers, convertCoinAmountFromInt, convertCoinAmountToInt, customFromWei, minusNumbers, multiplyNumbers, sleep } from "../../utils/helper";
+import { REGEX, addNumbers, convertCoinAmountFromInt, convertCoinAmountToInt, customFromWei, customToWei, minusNumbers, multiplyNumbers, sleep } from "../../utils/helper";
 import { TransactionConfig, TransactionReceipt, Transaction } from 'web3-core';
+import { executeEthTransaction, getEthBalance } from "./erc20.web3.service";
 
 
 const prisma = new PrismaClient();
@@ -30,10 +31,11 @@ const contractDecimal = async (tokenContract:any) => {
 
 // get eth token balance
 const getEthTokenBalance = async (rpcUrl: string, address:string, contractAddress:string) => {
+  let balance:any = 0;
   try {
     const connectWeb3: any = await initializeWeb3(rpcUrl);
     const tokenContract = await initializeErc20Contact(connectWeb3, contractAddress)
-    let balance:any = 0;
+    
     const tokenBalance = await tokenContract.methods.balanceOf(address).call();
     const tokenDecimal = await contractDecimal(tokenContract);
     if (tokenBalance) {
@@ -44,24 +46,179 @@ const getEthTokenBalance = async (rpcUrl: string, address:string, contractAddres
     }
   } catch (err) {
     console.log(err);
-    return generateErrorResponse("Something went wrong");
+    return generateErrorResponse("Something went wrong",balance);
   }
 }
+
+// get estimate fees for eth token
+const estimateEthTokenFee = async (
+  rpcUrl: string, 
+  contractAddress:string,
+  coinType:string,
+  nativeCurrency:string, 
+  nativeDecimal:number, 
+  gasLimit:number, 
+  fromAddress:string, 
+  toAddress:string,
+  amount_value:number
+  ) => {
+    let message = '';
+  try {
+    const connectWeb3 = await initializeWeb3(rpcUrl);
+    const gas_limit = Number(gasLimit);
+    const gas_price = await connectWeb3.eth.getGasPrice();
+    const to_address = Web3.utils.toChecksumAddress(toAddress);
+    const from_address = Web3.utils.toChecksumAddress(fromAddress);
+    const initializeContract = await initializeErc20Contact(rpcUrl,contractAddress);
+    const decimalValue = await contractDecimal(initializeContract);
+    let amount:any = amount_value;
+    const tokenAmount = customToWei(amount_value, decimalValue);
+
+    const balanceRequired = amount_value;
+    const getTokenBalance = await getEthTokenBalance(rpcUrl,from_address,contractAddress);
+    const balance = getTokenBalance['data'];
+
+    if (Number(balanceRequired) > Number(balance)) {
+      const balanceShortage = minusNumbers(
+        Number(balanceRequired),
+        Number(balance),
+      );
+      message = `${'Insufficient '} ${coinType} ${' balance'}!!\n
+      ${'balance required'}: ${balanceRequired.toFixed(
+        10,
+      )} ${coinType},\n
+      ${'balance exists'}: ${balance.toFixed(10)} ${coinType},\n
+      ${'balance shortage'}: ${balanceShortage.toFixed(
+        12,
+      )} ${coinType}.\n
+      ${'Try less amount. Or, '}`;
+      // console.log(message);
+      return generateErrorResponse(message);
+    }
+
+    //  fee balance checking 
+    const maxFee = Number(
+      convertCoinAmountFromInt(
+        multiplyNumbers(gas_limit, Number(gas_price)),
+        nativeDecimal,
+      ),
+    );
+    const feeBalanceRequired = maxFee;
+
+    const getFeesBalance = await getEthBalance(rpcUrl,fromAddress);
+    const feeBalance = getFeesBalance['data'];
+
+    if (Number(feeBalanceRequired) > Number(feeBalance)) {
+      const feeBalanceShortage = minusNumbers(
+        Number(feeBalanceRequired),
+        Number(feeBalance),
+      );
+      message = `${'Insufficient '} ${nativeCurrency} ${' Fee balance'}!!\n
+       ${'Fee balance required '}: ${feeBalanceRequired.toFixed(
+        10,
+      )} ${nativeCurrency},\n
+       ${'Fee balance exists'}: ${feeBalance.toFixed(10)} ${nativeCurrency},\n
+       ${'Fee balance shortage '}: ${feeBalanceShortage.toFixed(
+        12,
+      )} ${nativeCurrency}`;
+      // console.log(message);
+      return generateErrorResponse(message, { maxFee: maxFee });
+    }
+
+    const call = await initializeContract.methods.transfer(to_address,tokenAmount);
+
+    const gas = await call.estimateGas({from:from_address});
+    if (gas > gasLimit) {
+      message = `Network is too busy now, Fee is too high. ${
+        'Sending'
+      } ${coinType} ${ 'coin in' } ${rpcUrl} 
+      ${'will ran out of gas. gas needed'}=${gas}, ${
+        'gas limit we are sending'
+      }=${gas_limit}`;
+      // console.log(message);
+      return generateErrorResponse(message);
+    }
+
+    const estimatedFee = Number(
+      convertCoinAmountFromInt(
+        multiplyNumbers(gas, Number(gas_price)),
+        nativeDecimal,
+      ),
+    );
+    return generateSuccessResponse('success', {
+      fee: estimatedFee,
+    });
+  } catch(err:any) {
+    console.log(err)
+    return generateErrorResponse(err.stack);
+  }
+}
+  
 
 // send erc20 token
 const sendErc20Token = async(
   rpcUrl:string,
   contractAddress:string,
+  coin_type:string,
+  native_currency:string,
+  nativeDecimal:number,
+  gas_limit:number,
   from_address:string,
   to_address:string,
   pk:string,
-  amount:number
+  amount_value:number
   ) => {
   try {
+    let amount:any = amount_value;
+    console.log('requested amount =', amount);
     const web3 = await initializeWeb3(rpcUrl);
 
-    const validateToAddress = await web3.utils.isAddress(to_address);
+    const validateToAddress = Web3.utils.isAddress(to_address);
     if (validateToAddress) {
+      let gasPrice =  await web3.eth.getGasPrice();
+      gasPrice = Web3.utils.fromWei(gasPrice.toString(), 'ether');
+      const initializeContract = await initializeErc20Contact(rpcUrl,contractAddress);
+      const decimalValue = await contractDecimal(initializeContract);
+      amount = customToWei(amount_value, decimalValue);
+      console.log("sendable amount =", amount);
+
+      const toAddress = Web3.utils.toChecksumAddress(from_address);
+      const fromAddress = Web3.utils.toChecksumAddress(to_address);
+
+      const call = await initializeContract.methods.transfer(toAddress, amount);
+
+      const response = await estimateEthTokenFee(
+        rpcUrl,
+        contractAddress,
+        coin_type,
+        native_currency,
+        nativeDecimal,
+        gas_limit,
+        fromAddress,
+        toAddress,
+        amount_value
+        );
+      if (response.success == false) {
+        return response;
+      }  
+      let nonce = await web3.eth.getTransactionCount(fromAddress,'latest');
+      const tx:TransactionConfig = {
+        from: fromAddress,
+        nonce: nonce,
+        to: Web3.utils.toChecksumAddress(contractAddress),
+        data: call.encodeABI(),
+        gasPrice: gasPrice.toString(),
+        gas: gas_limit.toString(),
+      }
+
+      const transaction = await executeEthTransaction(
+        tx,
+        web3,
+        pk,
+        coin_type,
+      );
+
+      return transaction;
 
     } else {
       return generateErrorResponse("Invalid address");
@@ -72,7 +229,9 @@ const sendErc20Token = async(
   }
 }
 
+
 export {
   getEthTokenBalance,
-  sendErc20Token
+  sendErc20Token,
+  estimateEthTokenFee
 };
