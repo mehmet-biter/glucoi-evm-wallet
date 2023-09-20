@@ -2,6 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import { EVM_BASE_COIN, STATUS_ACTIVE } from "../utils/coreConstant";
 import { generateErrorResponse, generateSuccessResponse } from "../utils/commonObject";
 import { createEthAddress } from "./evm/erc20.web3.service";
+import { custome_encrypt } from "../utils/helper";
 
 const prisma = new PrismaClient();
 
@@ -95,7 +96,7 @@ const createWalletAddressHistorie = async (userId:number, coinType:string, netwo
         coin_type : coinType,
         network_id : networkId,
         wallet_id : Number(userWallet?.id),
-        wallet_key : wallet.data.pk,
+        wallet_key : await custome_encrypt(wallet.data.pk),
         address : wallet.data.address,
       }
     });

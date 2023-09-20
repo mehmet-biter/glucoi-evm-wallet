@@ -2,6 +2,7 @@ import { Decimal } from "@prisma/client/runtime";
 import * as safeMath from '@dip1059/safe-math-js';
 import BigNumber from "bignumber.js";
 import Web3 from "web3";
+import _sodium from "libsodium-wrappers";
 
 export function setApp() {
 
@@ -86,3 +87,41 @@ export const convertCoinAmountFromInt = (
     BTC_TXID = '^[a-fA-F0-9]{64}$',
     ETH_TXHASH = '^0x[a-fA-F0-9]{64}$',
   }
+
+  /////////// Custom encryption section start here ///////////////////
+  // Encrypt
+  export const custome_encrypt = async (text:string):Promise<string> => {
+    await _sodium.ready;
+    let sodium = _sodium;
+    let key = sodium.from_hex('681abfbdff0559329882f2a7960ec6d1b301851b58b4f9e33e57642abc46579e');    
+    let nonce = sodium.randombytes_buf(sodium.crypto_secretbox_NONCEBYTES);
+    let chiperText = sodium.crypto_secretbox_easy(text, nonce, key);
+    let encryptData = sodium.to_base64(concatBuffers(nonce, chiperText), sodium.base64_variants.URLSAFE_NO_PADDING);
+    return encryptData;
+  }
+
+  // Decrypt
+  export const custome_decrypt = async (text:string):Promise<string> => {
+    await _sodium.ready; 
+    let sodium = _sodium;
+    let key = sodium.from_hex('681abfbdff0559329882f2a7960ec6d1b301851b58b4f9e33e57642abc46579e');    
+    let data = sodium.from_base64(text, sodium.base64_variants.URLSAFE_NO_PADDING);
+    let nonce = data.slice(0, sodium.crypto_secretbox_NONCEBYTES);
+    let ciphertext = data.slice(sodium.crypto_secretbox_NONCEBYTES);
+    let decryptData = sodium.crypto_secretbox_open_easy(ciphertext, nonce, key);
+    return sodium.to_string(decryptData);
+  }
+
+  function concatTypedArrays(a:any, b:any) {
+    var c = new (a.constructor)(a.length + b.length);
+    c.set(a, 0);
+    c.set(b, a.length);
+    return c;
+  }
+  function concatBuffers(a:any, b:any) {
+    return concatTypedArrays(
+        new Uint8Array(a.buffer || a), 
+        new Uint8Array(b.buffer || b)
+    );
+  }
+  //////////// Custom encryption section end here //////////////////
