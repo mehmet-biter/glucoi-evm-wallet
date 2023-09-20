@@ -5,7 +5,7 @@ import { generateErrorResponse, generateSuccessResponse } from "../../utils/comm
 import { ERC20_ABI } from "../../contract/erc20.token.abi";
 import { REGEX, addNumbers, convertCoinAmountFromInt, convertCoinAmountToInt, customFromWei, customToWei, minusNumbers, multiplyNumbers, sleep } from "../../utils/helper";
 import { TransactionConfig, TransactionReceipt, Transaction } from 'web3-core';
-import { executeEthTransaction, getEthBalance } from "./erc20.web3.service";
+import { executeEthTransaction, getEthBalance, getTransaction, validateTxHash } from "./erc20.web3.service";
 
 
 const prisma = new PrismaClient();
@@ -229,9 +229,61 @@ const sendErc20Token = async(
   }
 }
 
+// get token transaction details
+const getERC20tokenTransactionDetails = async(
+  rpcUrl:string,
+  tx:string,
+  contractAddress:string
+) => {
+  try {
+    const web3 = await initializeWeb3(rpcUrl);
+    const checkHash = await validateTxHash(tx);
+    if (checkHash) {
+      const response = await getTransaction(rpcUrl,tx);
+      if (response) {
+        const contract = await initializeErc20Contact(web3,contractAddress);
+         // Decode the input data using the ERC20 token ABI
+         const types = ["address", "uint256"];
+
+          // Decode the input data using the types of the function arguments
+          const input = web3.eth.abi.decodeParameters(
+            types,
+            response.input.substring(10)
+          );
+            console.log(input);
+          // The amount of tokens transferred is the second parameter
+            let amount = input[1];
+            let toAddress = input[0];
+            const tokenDecimal = await contractDecimal(contract);
+
+            amount = customFromWei(amount, tokenDecimal);
+            const data = {
+              hash: response,
+              gas_used: response.gas / response.gasPrice,
+              txID: response.hash,
+              amount: amount,
+              toAddress: toAddress,
+              fromAddress: response.from,
+            }
+
+            return generateSuccessResponse('Transaction details', data);
+      } else {
+        return generateErrorResponse('Get transaction failed');
+      }
+    } else {
+      return generateErrorResponse('Invalid transaction hash')
+    }
+    const response = web3.eth.getTransaction(tx);
+  } catch(err:any) {
+    console.log('getERC20tokenTransactionDetails',err);
+    return generateErrorResponse(err.stack)
+  }
+}
+
 
 export {
   getEthTokenBalance,
   sendErc20Token,
-  estimateEthTokenFee
+  estimateEthTokenFee,
+  getERC20tokenTransactionDetails
 };
