@@ -5,6 +5,7 @@ import { Request, Response } from "express";
 import BigNumber from "bignumber.js";
 import Web3 from "web3";
 import { createAddress, createSystemAddress } from "../services/wallet.service";
+import { generateSuccessResponse } from '../utils/commonObject';
 
 
 const createWallet = async (req: Request, res: Response) => {
@@ -49,7 +50,14 @@ const customToWei = (amount:number, decimal:number = 18):string => {
   }
 }
 
+const walletWithdrawalProcess = (req: Request, res: Response):void => {
+    let request = req.body;
+    console.log(request);
+    res.send(generateSuccessResponse("Withdrawal proccess successfully"));
+}
+
 export default {
     createWallet,
     createSystemWallet,
+    walletWithdrawalProcess,
 }
