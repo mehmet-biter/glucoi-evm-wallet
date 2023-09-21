@@ -3,6 +3,7 @@ import * as safeMath from '@dip1059/safe-math-js';
 import BigNumber from "bignumber.js";
 import Web3 from "web3";
 import _sodium from "libsodium-wrappers";
+import { WITHDRAWAL_FIXED_FEES } from "../utils/coreConstant";
 
 export function setApp() {
 
@@ -125,3 +126,19 @@ export const convertCoinAmountFromInt = (
     );
   }
   //////////// Custom encryption section end here //////////////////
+
+  export const fees_calculator = (amount:number, fees:number, type:number):Decimal => {
+    return type == WITHDRAWAL_FIXED_FEES ? new Decimal(fees) : new Decimal(((fees * amount) / 100).toFixed(8));
+  }
+
+  export const generateRandomString = (length: number): string => {
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let randomString = '';
+  
+    for (let i = 0; i < length; i++) {
+      const randomIndex = Math.floor(Math.random() * characters.length);
+      randomString += characters.charAt(randomIndex);
+    }
+  
+    return randomString;
+  }
