@@ -297,26 +297,92 @@ const validateTxHash = async (txHash: string): Promise<boolean> =>{
   return new RegExp(REGEX.ETH_TXHASH).test(txHash);
 }
 
-const getAddressByPrivateKey = async(rpcUrl:string) => {
+const getAddressByPrivateKey = async(rpcUrl:string, pk:string) => {
   try {
     const web3 = await initializeWeb3(rpcUrl);
+    const response = await web3.eth.accounts.privateKeyToAccount(pk);
+    if (response) {
+      return generateSuccessResponse('Get address success', {address:response.address})
+    } else {
+      return generateErrorResponse('Get address failed');
+    }
   } catch(err:any) {
     console.log(err);
     return generateErrorResponse(err.stack)
   }
 }
 
+// get latest block number
+const getLatestBlockNumber = async(web3:any) => {
+  return await web3.eth.getBlockNumber();
+}
 
-// export const createEvmAddress = async (rpcUrl: string|null) => {
-//   rpcUrl = rpcUrl || "/";
-//   const connectWeb3: any = new Web3(new Web3.providers.HttpProvider(rpcUrl));
-//   let wallet = await connectWeb3.eth.accounts.create();
-//   if (wallet) {
-//     return generateSuccessResponse("Wallet created successfully", wallet);
-//   } else {
-//     return generateErrorResponse("Wallet not generated");
-//   }
-// };
+// get latest transaction
+const getLatestTransaction = async(
+  rpcUrl:string,
+  fromBlockNumber: number,
+  block_count: number,
+  ) => {
+  try {
+    const web3:any =  initializeWeb3(rpcUrl);
+    let prevBlock = 100;
+    if (block_count > 0) {
+      prevBlock =  block_count;
+    }
+
+    let resultData:any = [];
+    web3.eth.getBlockNumber()
+      .then(async (latestBlockNumber:any) => {
+        let fromBlock = 0;
+        if (fromBlockNumber > 0) {
+          if ((latestBlockNumber - fromBlockNumber) > 5000) {
+            fromBlock = latestBlockNumber - prevBlock;
+          } else {
+            fromBlock =  fromBlockNumber;
+          }
+        } else {
+          fromBlock = latestBlockNumber - prevBlock;
+        }
+        // Set the block range to fetch transactions
+        const startBlock = fromBlock; // Adjust as needed
+        const endBlock = latestBlockNumber;
+
+        // Fetch transactions within the specified block range
+        for (let blockNumber = startBlock; blockNumber <= endBlock; blockNumber++) {
+          const block = await web3.eth.getBlock(blockNumber, true);
+          if (block && block.transactions) {
+            // Process and log transactions from the block
+            block.transactions.forEach((res:any) => {
+              console.log('res => ',res)
+              let innerData = {
+                  tx_hash: res.hash,
+                  block_hash: res.blockHash,
+                  from_address: res.from,
+                  to_address: res.to,
+                  amount: Web3.utils.fromWei(res.value, 'ether'),
+                  block_number: block.number,
+                  gas_used: res.gasUsed,
+                  gas_price: res.gasPrice
+              };
+              resultData.push(innerData)
+            
+            });
+          }
+        }
+      })
+      .catch((error:any) => {
+        console.error(error);
+        return generateErrorResponse(error.stack)
+      });
+
+    return generateSuccessResponse("success", resultData);  
+  } catch(err:any) {
+    console.log('getLatestTransaction',err);
+    return generateErrorResponse(err.stack)
+  }
+}
+
+
 
 export {
   createEthAddress,
@@ -329,5 +395,7 @@ export {
   getBlockNumber,
   validateAddress,
   validateTxHash,
-  executeEthTransaction
+  executeEthTransaction,
+  getAddressByPrivateKey,
+  getLatestBlockNumber
 };
