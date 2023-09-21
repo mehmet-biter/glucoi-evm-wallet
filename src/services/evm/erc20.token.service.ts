@@ -5,7 +5,7 @@ import { generateErrorResponse, generateSuccessResponse } from "../../utils/comm
 import { ERC20_ABI } from "../../contract/erc20.token.abi";
 import { REGEX, addNumbers, convertCoinAmountFromInt, convertCoinAmountToInt, customFromWei, customToWei, minusNumbers, multiplyNumbers, sleep } from "../../utils/helper";
 import { TransactionConfig, TransactionReceipt, Transaction } from 'web3-core';
-import { executeEthTransaction, getEthBalance, getTransaction, validateTxHash } from "./erc20.web3.service";
+import { executeEthTransaction, getEthBalance, getLatestBlockNumber, getTransaction, validateTxHash } from "./erc20.web3.service";
 
 
 const prisma = new PrismaClient();
@@ -26,6 +26,16 @@ const initializeErc20Contact = async (web3:any, contractAddress:string) => {
 // get contract decimal
 const contractDecimal = async (tokenContract:any) => {
   return await tokenContract.methods.decimals().call();
+}
+
+// get contract symbol
+const getContractSymbol = async(contractInstance:any) => {
+  return await contractInstance.methods.symbol().call();
+}
+
+// get contract name
+const getContractName = async(contractInstance:any) => {
+  return await contractInstance.methods.name().call();
 }
 
 
@@ -280,12 +290,117 @@ const getERC20tokenTransactionDetails = async(
   }
 }
 
+// get contract details
+const getContractDetails = async(
+  rpcUrl:string,
+  contractAddress:string
+) => {
+  try {
+    const data = {
+      chain_id: 0,
+      symbol: '',
+      name: '',
+      token_decimal: 18
+    }
+    const web3 = await initializeWeb3(rpcUrl);
+    
+    const contract = await initializeErc20Contact(web3,contractAddress);
+    
+    data.chain_id = await web3.eth.net.getId();
+    data.symbol = await getContractSymbol(contract);
+    data.name = await getContractName(contract);
+    data.token_decimal = await contractDecimal(contract);
 
+    return generateSuccessResponse("Success", data);
+  } catch(err:any) {
+    console.log('getContractDetails',err);
+    return generateErrorResponse(err.stack)
+  }
+}
+
+// get latest event
+const getLatestEvent = async(
+  rpcUrl: string,
+  contractAddress: string,
+  fromBlockNumber: number,
+  block_count: number,
+) => {
+  try {
+    const web3 = await initializeWeb3(rpcUrl);
+    const contract = await initializeErc20Contact(web3,contractAddress);
+    const decimalValue = await contractDecimal(contract);
+    const latestBlockNumber = await getLatestBlockNumber(web3);
+    let prevBlock = 100;
+    if (block_count > 0) {
+      prevBlock =  block_count;
+    }
+    let fromBlock = 0;
+    if (fromBlockNumber > 0) {
+      if ((latestBlockNumber - fromBlockNumber) > 5000) {
+        fromBlock = latestBlockNumber - prevBlock;
+      } else {
+        fromBlock =  fromBlockNumber;
+      }
+    } else {
+      fromBlock = latestBlockNumber - prevBlock;
+    }
+    const result = await getBlockDetails(contract,fromBlock,latestBlockNumber);
+    if (result.success == true) {
+      let resultData:any = [];
+      result.data.forEach(function (res:any) {
+          let innerData = {
+              event: res.event,
+              signature: res.signature,
+              contract_address: res.address,
+              tx_hash: res.transactionHash,
+              block_hash: res.blockHash,
+              from_address: res.returnValues.from,
+              to_address: res.returnValues.to,
+              amount: customFromWei(res.returnValues.value,decimalValue),
+              block_number: res.blockNumber,
+              block_timestamp: 0
+          };
+          resultData.push(innerData)
+      });
+
+      return generateSuccessResponse('success', resultData)
+    } else {
+      return result;
+    }
+
+  } catch(err:any) {
+    console.log('getLatestEvent',err);
+    return generateErrorResponse(err.stack)
+  }
+}
+
+// get block details
+
+const getBlockDetails = async(contract:any,fromBlockNumber:number,toBlockNumber:number) => {
+  try {
+    const response = await contract.getPastEvents("Transfer",
+    {
+        fromBlock: fromBlockNumber,
+        toBlock: toBlockNumber // You can also specify 'latest'
+    });
+    if (response && response.length > 0) {
+      return generateSuccessResponse('Found block', response)
+    } else {
+      return generateErrorResponse('nodatafound')
+    }
+  } catch(err:any) {
+    console.log('getLatestEvent',err);
+    return generateErrorResponse(err.stack)
+  }
+}
 
 
 export {
   getEthTokenBalance,
   sendErc20Token,
   estimateEthTokenFee,
-  getERC20tokenTransactionDetails
+  getERC20tokenTransactionDetails,
+  getContractDetails,
+  getBlockDetails,
+  getLatestEvent
 };
