@@ -1,5 +1,5 @@
 Arguments: 
-  /home/safayet/.nvm/versions/node/v20.5.1/bin/node /usr/local/bin/yarn add @types/tronweb
+  /home/safayet/.nvm/versions/node/v20.5.1/bin/node /usr/local/bin/yarn add trongrid-js
 
 PATH: 
   /home/safayet/.nvm/versions/node/v20.5.1/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
@@ -14,7 +14,7 @@ Platform:
   linux x64
 
 Trace: 
-  Error: https://registry.yarnpkg.com/@types%2ftronweb: Not found
+  Error: https://registry.yarnpkg.com/trongrid-js: Not found
       at params.callback [as _callback] (/usr/local/lib/node_modules/yarn/lib/cli.js:66145:18)
       at self.callback (/usr/local/lib/node_modules/yarn/lib/cli.js:140890:22)
       at Request.emit (node:events:514:28)
@@ -106,6 +106,7 @@ npm manifest:
       "supertest": "^6.3.3",
       "swagger-jsdoc": "^6.2.5",
       "swagger-ui-express": "^4.6.0",
+      "tronweb-typings": "^1.0.1",
       "ts-jest": "^29.0.3",
       "ts-node": "^10.9.1",
       "typescript": "^4.3.5"
@@ -510,6 +511,15 @@ Lockfile:
       colorspace "1.1.x"
       enabled "2.0.x"
       kuler "^2.0.0"
+  
+  "@daochild/tronweb-typescript@^1.0.103":
+    version "1.0.103"
+    resolved "https://registry.yarnpkg.com/@daochild/tronweb-typescript/-/tronweb-typescript-1.0.103.tgz#f0c06b2e3dc0fbe3f32718c1e46b57c76e97eae8"
+    integrity sha512-DcTMaY5lld625sTRecLuAYvNYNvlfdEY6BEsdyj4d3w82AmYHBU9+nbxNnOfbZ8+KQyVGlECmowWPTjZLj+XfA==
+    dependencies:
+      bignumber.js "^9.1.1"
+      tronweb "^5.1.0"
+      ts-node "^10.9.1"
   
   "@dip1059/safe-math-js@^1.0.0":
     version "1.0.0"
@@ -1977,7 +1987,7 @@ Lockfile:
     resolved "https://registry.npmjs.org/bcryptjs/-/bcryptjs-2.4.3.tgz"
     integrity sha512-V/Hy/X9Vt7f3BbPJEi8BdVFMByHi+jNXrYkW3huaybV/kQ0KJg0Y6PkEMbn+zeT+i+SiKZ/HMqJGIIt4LZDqNQ==
   
-  bignumber.js@^9.0.0, bignumber.js@^9.0.1, bignumber.js@^9.1.2:
+  bignumber.js@^9.0.0, bignumber.js@^9.0.1, bignumber.js@^9.1.1, bignumber.js@^9.1.2:
     version "9.1.2"
     resolved "https://registry.npmjs.org/bignumber.js/-/bignumber.js-9.1.2.tgz"
     integrity sha512-2/mKyZH9K85bzOEfhXDBFZTGd1CTs+5IHpeFQo9luiBG7hghdC851Pj2WAhb6E3R6b9tZj/XKhbg4fum+Kepug==
@@ -6226,7 +6236,12 @@ Lockfile:
     resolved "https://registry.npmjs.org/triple-beam/-/triple-beam-1.3.0.tgz"
     integrity sha512-XrHUvV5HpdLmIj4uVMxHggLbFSZYIn7HEWsqePZcI50pco+MPqJ50wMGY794X7AOOhxOBAjbkqfAbEe/QMp2Lw==
   
-  tronweb@^5.3.0:
+  tronweb-typings@^1.0.1:
+    version "1.0.1"
+    resolved "https://registry.yarnpkg.com/tronweb-typings/-/tronweb-typings-1.0.1.tgz#e4ec6992fc0e58a5fb7c65a0fafb80b187abc9f4"
+    integrity sha512-Ajs6dsFo9gbOd96Q8UinyqapdqlKC8/bRQWQSQbFynnV40e1Uk5h/IRV+IuShoLhGZB33YCqIVNRUKjo/vU+5Q==
+  
+  tronweb@^5.1.0, tronweb@^5.3.0:
     version "5.3.0"
     resolved "https://registry.yarnpkg.com/tronweb/-/tronweb-5.3.0.tgz#b40c4aa68f81b70bac4d8de52960b82b61f9ab04"
     integrity sha512-i03+3UviQacqdrr3VgXHDL8h/2E24BeULak4w6+yRkJaCuEyxjWOtEn1dq87ulTkHzS/vKK0zIyvW7rSxuISOA==
