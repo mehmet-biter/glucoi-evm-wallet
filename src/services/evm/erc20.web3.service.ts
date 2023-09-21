@@ -297,6 +297,15 @@ const validateTxHash = async (txHash: string): Promise<boolean> =>{
   return new RegExp(REGEX.ETH_TXHASH).test(txHash);
 }
 
+const getAddressByPrivateKey = async(rpcUrl:string) => {
+  try {
+    const web3 = await initializeWeb3(rpcUrl);
+  } catch(err:any) {
+    console.log(err);
+    return generateErrorResponse(err.stack)
+  }
+}
+
 
 // export const createEvmAddress = async (rpcUrl: string|null) => {
 //   rpcUrl = rpcUrl || "/";
