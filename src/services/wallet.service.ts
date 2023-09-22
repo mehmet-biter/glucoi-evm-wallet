@@ -187,7 +187,7 @@ const executeWithdrawal = async (data:any) => {
       let receiver_Address = validateResponse?.data?.receiverAddress
       if(!receiver_Address){
   
-        receiverWallet= null;
+        receiverWallet= { address: data.address };
         receiverUser = null;
         address_type = ADDRESS_TYPE_EXTERNAL;
         fees = validateResponse?.data?.fees;
@@ -195,7 +195,7 @@ const executeWithdrawal = async (data:any) => {
       }else{
   
         fees = 0;
-        receiverWallet = validateResponse?.data?.receiverWallet;
+        receiverWallet = validateResponse?.data?.receiverWallet; console.log('receiverWallet', receiverWallet);
         receiverUser = validateResponse?.data?.wallet.user;
         address_type = ADDRESS_TYPE_INTERNAL;
         if ( data.user.id == receiverUser.id ) {
@@ -303,13 +303,13 @@ const acceptPendingExternalWithdrawal = async (withdrawal_history:any, adminID:a
       console.log('acceptPendingExternalWithdrawal', 'withdrawal process started from user end');
   }
   let currency = withdrawal_history.coin_type;
-  let senderWallet = await prisma.wallet_address_histories.findFirst({ where: { wallet_id: withdrawal_history.wallet_id } });
   let coin = await prisma.coins.findFirst({ where: { coin_type: currency } });
   let network:any = await prisma.networks.findFirst({ where: { id: withdrawal_history.network_id } });
+  let senderWallet = await prisma.wallet_address_histories.findFirst({ where: { wallet_id: Number(withdrawal_history.wallet_id), network_id: Number(network.id) } });
   let supportNetwork = await prisma.supported_networks.findFirst({ where: { slug: network?.slug } });
-  let adminWallet = await prisma.admin_wallet_keys.findFirst({ where: { network_id: network.id } });
-  let coinNetwork = await prisma.coin_networks.findFirst({ where: { network_id: network.id, currency_id: Number(coin?.id) } });
-
+  let adminWallet = await prisma.admin_wallet_keys.findFirst({ where: { network_id: Number(network.id) } });
+  let coinNetwork = await prisma.coin_networks.findFirst({ where: { network_id: Number(network.id), currency_id: Number(coin?.id) } });
+  console.log('senderWallet',senderWallet, { wallet_id: withdrawal_history.wallet_id });
   if (network  && (network.base_type == EVM_BASE_COIN || network.base_type == TRON_BASE_COIN)) {
       let tokenSendResponse = null;
       if(Number(coinNetwork?.type) == NATIVE_COIN){
@@ -319,7 +319,7 @@ const acceptPendingExternalWithdrawal = async (withdrawal_history:any, adminID:a
             withdrawal_history.coin_type,
             coin?.decimal ?? 18,
             Number(supportNetwork?.gas_limit), 
-            senderWallet?.address ?? "",
+            adminWallet?.address ?? "",
             withdrawal_history.address,
             withdrawal_history.amount,
             (adminWallet) ? await custome_decrypt(adminWallet.pv) : "",
@@ -328,12 +328,12 @@ const acceptPendingExternalWithdrawal = async (withdrawal_history:any, adminID:a
       }else{
         tokenSendResponse = (network.base_type == EVM_BASE_COIN) 
           ? await sendErc20Token(
-            network.rpc_url, "coin network",
+            network.rpc_url, coinNetwork?.contract_address || '',
             withdrawal_history.coin_type,
             supportNetwork?.native_currency ?? "",
             coin?.decimal ?? 18,
             Number(supportNetwork?.gas_limit), 
-            senderWallet?.address ?? "",
+            adminWallet?.address ?? "",
             withdrawal_history.address,
             (adminWallet) ? await custome_decrypt(adminWallet.pv) : "",
             withdrawal_history.amount
@@ -384,7 +384,7 @@ const make_withdrawal_data = (data:any):object => {
     transaction_hash : data.trx,
     confirmations : '0',
     status : STATUS_PENDING,
-    receiver_wallet_id : (data.receiverWallet) ? 0 : data.receiverWallet?.id,
+    receiver_wallet_id : (data.receiverWallet) ? '0' : data.receiverWallet?.id,
     network_type : data.network_type ?? ""
   };
 }
