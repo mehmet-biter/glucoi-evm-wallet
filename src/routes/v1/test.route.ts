@@ -8,4 +8,5 @@ import testController from "../../controllers/test.controller";
 const router = express.Router();
 
 router.post("/send-eth", testController.sendEth);
+router.get("/check-deposit", testController.checkDeposit);
 export default router;

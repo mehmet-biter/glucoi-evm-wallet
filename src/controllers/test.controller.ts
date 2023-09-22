@@ -1,5 +1,7 @@
+import { checkCoinDeposit } from "../services/evm/deposit.service";
 import { sendEthCoin } from "../services/evm/erc20.web3.service";
 import { Request, Response } from "express";
+import { successResponse } from "../utils/common";
 
 const sendEth = async (req: Request, res: Response) => {
     let request:any = req.body;
@@ -15,9 +17,16 @@ const sendEth = async (req: Request, res: Response) => {
         request.pk
     );
     console.log(response);
-    return response;
+    return successResponse(res,'executed');
+}
+
+const checkDeposit = async(res: Response) => {
+    const response = await checkCoinDeposit();
+    console.log('checkDeposit', 'executed');
+    return successResponse(res,'executed');
 }
 
 export default {
     sendEth,
+    checkDeposit
 }

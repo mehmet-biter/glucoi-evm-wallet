@@ -320,13 +320,14 @@ const getLatestBlockNumber = async(web3:any) => {
 // get latest transaction
 const getLatestTransaction = async(
   rpcUrl:string,
-  fromBlockNumber: number,
-  block_count: number,
+  fromBlockNumber?: number,
+  block_count?: number,
   ) => {
   try {
-    const web3:any =  initializeWeb3(rpcUrl);
-    let prevBlock = 100;
-    if (block_count > 0) {
+    console.log('getLatestTransaction', 'called')
+    const web3:any = await initializeWeb3(rpcUrl);
+    let prevBlock = 10;
+    if (block_count && block_count > 0) {
       prevBlock =  block_count;
     }
 
@@ -334,7 +335,7 @@ const getLatestTransaction = async(
     web3.eth.getBlockNumber()
       .then(async (latestBlockNumber:any) => {
         let fromBlock = 0;
-        if (fromBlockNumber > 0) {
+        if (fromBlockNumber && fromBlockNumber > 0) {
           if ((latestBlockNumber - fromBlockNumber) > 5000) {
             fromBlock = latestBlockNumber - prevBlock;
           } else {
@@ -346,6 +347,8 @@ const getLatestTransaction = async(
         // Set the block range to fetch transactions
         const startBlock = fromBlock; // Adjust as needed
         const endBlock = latestBlockNumber;
+        console.log('startBlock => ', startBlock);
+        console.log('endBlock => ', endBlock);
 
         // Fetch transactions within the specified block range
         for (let blockNumber = startBlock; blockNumber <= endBlock; blockNumber++) {
@@ -353,7 +356,8 @@ const getLatestTransaction = async(
           if (block && block.transactions) {
             // Process and log transactions from the block
             block.transactions.forEach((res:any) => {
-              console.log('res => ',res)
+              // console.log('res => ',res);
+
               let innerData = {
                   tx_hash: res.hash,
                   block_hash: res.blockHash,
@@ -374,6 +378,7 @@ const getLatestTransaction = async(
         console.error(error);
         return generateErrorResponse(error.stack)
       });
+      // console.log('resultData', resultData)
 
     return generateSuccessResponse("success", resultData);  
   } catch(err:any) {
@@ -397,5 +402,6 @@ export {
   validateTxHash,
   executeEthTransaction,
   getAddressByPrivateKey,
-  getLatestBlockNumber
+  getLatestBlockNumber,
+  getLatestTransaction
 };
