@@ -16,15 +16,41 @@ const prisma = new PrismaClient();
   const userWallet = await getWalletData(Number(User.id), coinType);
   if(!userWallet) return generateErrorResponse("Wallet not found");
 
-  const walletAddress = await prisma.wallet_address_histories.findFirst({
-    where: {
-      user_id : Number(User.id),
-      coin_type : coinType,
-      network_id : Number(getNetwork?.id),
-      wallet_id : Number(userWallet?.id),
+    const walletAddresses = await prisma.wallet_address_histories.findMany({
+      where: {
+        user_id : Number(User.id),
+        // coin_type : coinType,
+        network_id : Number(getNetwork?.id),
+        // wallet_id : Number(userWallet?.id),
+      }
+    });
+  
+    let walletAddress:any = null;
+    if(walletAddresses?.length > 0 )  {
+      for(let i =0; i< walletAddresses.length;i++) {
+        const address = walletAddresses[i];
+        if (address?.coin_type == coinType && Number(address?.wallet_id) == Number(userWallet?.id)) {
+          walletAddress = address;
+          break;
+        }
+      }
+  
+      if (!walletAddress) {
+        walletAddress = await prisma.wallet_address_histories.create({
+          data: {
+            user_id : Number(User.id),
+            coin_type : coinType,
+            network_id : Number(getNetwork?.id),
+            wallet_id : Number(userWallet?.id),
+            address: walletAddresses[0].address,
+          }
+      });
     }
-  });
-  if(walletAddress) return generateSuccessResponse("Wallet address found successfully", walletAddress.address);
+  }
+    
+    if(walletAddress & walletAddress.address) {
+      return generateSuccessResponse("Wallet address found successfully", walletAddress.address);
+    }
 
   if (getNetwork) {
     let wallet = generateErrorResponse("Invalid base type");
