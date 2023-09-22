@@ -1478,6 +1478,8 @@ model withdraw_histories {
   confirmations        String?
   fees                 Decimal   @default(0.000000000000000000) @db.Decimal(29, 18)
   status               Int       @default(0) @db.TinyInt
+  network_id           Int       @db.UnsignedInt
+  base_type            Int       @db.UnsignedInt
   automatic_withdrawal String?
   updated_by           Int?      @db.TinyInt
   network_type         String?
@@ -1534,6 +1536,7 @@ model network_balances {
 model networks {
   id                 BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
   name               String
+  slug               String    @unique(map: "networks_slug_unique") @db.VarChar(180)
   description        String?
   block_confirmation String?
   base_type          Int       @db.TinyInt
@@ -1570,4 +1573,23 @@ model user_withdrawal_addresses {
   memo         String?
   created_at   DateTime? @db.Timestamp(0)
   updated_at   DateTime? @db.Timestamp(0)
+}
+
+model supported_networks {
+  id               BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  type             Int
+  slug             String
+  name             String
+  network_type     Int       @default(1) @db.TinyInt
+  chain_id         Int       @default(0)
+  native_currency  String?
+  base_url         String?
+  token_endpoint   String?
+  address_endpoint String?
+  tx_endpoint      String?
+  gas_limit        String?
+  gas_price        String?
+  created_at       DateTime? @db.Timestamp(0)
+  updated_at       DateTime? @db.Timestamp(0)
+  status           Int?      @default(1) @db.TinyInt
 }
