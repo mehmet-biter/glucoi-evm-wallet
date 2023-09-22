@@ -120,7 +120,7 @@ const walletWithdrawalService = async (request: any) => {
   const wallet = await prisma.wallets.findFirst({
     where: {
       id: request.wallet_id,
-      user_id: user.id,
+      user_id: Number(user.id),
     }
   });
   if(!wallet) return generateErrorResponse("Wallet not find");
@@ -148,7 +148,7 @@ const walletWithdrawalService = async (request: any) => {
   };
 
   // this code will be executed in queue, start here
-  executeWithdrawal(data);
+  await executeWithdrawal(data);
   // this code will be executed in queue, end here
 
   // check admin approval
@@ -162,7 +162,7 @@ const executeWithdrawal = async (data:any) => {
     const job_wallet = await prisma.wallets.findFirst({
       where: {
         id: data.wallet_id,
-        user_id: data.user.id,
+        user_id: Number(data.user.id),
       }
     });
     if(job_wallet) {
@@ -209,15 +209,17 @@ const executeWithdrawal = async (data:any) => {
   
       }
   
-      makeData.amount = data.amount;
-      makeData.fees = fees;
+      makeData.amount         = data.amount;
+      makeData.fees           = fees;
       makeData.receiverWallet = receiverWallet;
-      makeData.receiverUser = receiverUser;
-      makeData.address_type = address_type;
-      makeData.user = data.user;
-      makeData.wallet = job_wallet;
-      makeData.trx = trx;
-  
+      makeData.receiverUser   = receiverUser;
+      makeData.address_type   = address_type;
+      makeData.user           = data.user;
+      makeData.wallet         = job_wallet;
+      makeData.trx            = trx;
+      makeData.base_type      = data.base_type;
+      makeData.network_id     = data.network_id;
+
       const senderWalletUpdate = await prisma.wallets.update({
         where: { id: job_wallet.id },
         data: {
@@ -366,18 +368,24 @@ const acceptPendingExternalWithdrawal = async (withdrawal_history:any, adminID:a
 
 const make_withdrawal_data = (data:any):object => {
   return {
-      wallet_id : data.wallet.id,
-      address : data.receiverWallet?.address,
-      amount : data.amount,
-      address_type : data.address_type,
-      fees : data.fees,
-      coin_type : data.wallet.coin_type,
-      transaction_hash : data.trx,
-      confirmations : 0,
-      status : STATUS_PENDING,
-      receiver_wallet_id : (data.receiverWallet) ? 0 : data.receiverWallet?.id,
-      user_id : data.user.id,
-      network_type : data.network_type ?? ""
+    user_id :Number( data.user.id),
+    wallets : {
+      connect: {
+        id: data.wallet.id
+      }
+    },
+    address : data.receiverWallet?.address || '',
+    amount : Number(data.amount),
+    address_type : data.address_type,
+    fees : Number(data.fees),
+    network_id: data.network_id,
+    base_type: data.base_type,
+    coin_type : data.wallet.coin_type,
+    transaction_hash : data.trx,
+    confirmations : '0',
+    status : STATUS_PENDING,
+    receiver_wallet_id : (data.receiverWallet) ? 0 : data.receiverWallet?.id,
+    network_type : data.network_type ?? ""
   };
 }
 
@@ -402,8 +410,8 @@ const checkWithdrawalValidation = async (request: any, user: any, wallet: any, c
   let responseData:any = {};
 
   // check wallet balance
-  let fees = 0;
-  let totalAmount = fees_calculator(request.amount, fees, coin.withdrawal_fees_type);
+  let fees = fees_calculator(request.amount, coin.withdrawal_fees, coin.withdrawal_fees_type);
+  let totalAmount = Number(request.amount) + Number(fees);
   if(!(wallet.balance >= totalAmount)) return generateErrorResponse('Your wallet does not have enough balance');
   [responseData.totalAmount, responseData.fees] = [totalAmount, fees];
 
@@ -430,15 +438,15 @@ const checkWithdrawalValidation = async (request: any, user: any, wallet: any, c
             return generateErrorResponse("Both wallet coin type should be same");
       }
   }
-
+  console.log(totalAmount);
   // check coin status
   if(coin.status != STATUS_ACTIVE) return generateErrorResponse(coin.coin_type + " coin is inactive right now.");
   // check coin withdrawal status
   if(coin.is_withdrawal != STATUS_ACTIVE) return generateErrorResponse(coin.coin_type + " coin is not available for withdrawal right now");
   // check coin minimum withdrawal
-  if(coin.minimum_withdrawal > totalAmount) return generateErrorResponse("Minimum withdrawal amount " + coin.minimum_withdrawal + " " + coin.coin_type);
+  if(coin.minimum_withdrawal > totalAmount) return generateErrorResponse("Minimum withdrawal amount " + (coin.minimum_withdrawal).toFixed(8) + " " + coin.coin_type);
   // check coin maximum withdrawal
-  if(coin.maximum_withdrawal < totalAmount) return generateErrorResponse("Maximum withdrawal amount " + coin.maximum_withdrawal + " " + coin.coin_type);
+  if(coin.maximum_withdrawal < totalAmount) return generateErrorResponse("Maximum withdrawal amount " + (coin.maximum_withdrawal).toFixed(8) + " " + coin.coin_type);
   return generateSuccessResponse("validation success", responseData);
 }
 
@@ -449,4 +457,5 @@ const checkBaseType = (type: number): boolean => {
 export {
     createAddress,
     createSystemAddress,
+    walletWithdrawalService,
 }
