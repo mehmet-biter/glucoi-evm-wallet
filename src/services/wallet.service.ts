@@ -43,12 +43,13 @@ const prisma = new PrismaClient();
             network_id : Number(getNetwork?.id),
             wallet_id : Number(userWallet?.id),
             address: walletAddresses[0].address,
+            wallet_key: walletAddresses[0].wallet_key,
           }
       });
     }
   }
     
-    if(walletAddress & walletAddress.address) {
+    if(walletAddress && walletAddress.address) {
       return generateSuccessResponse("Wallet address found successfully", walletAddress.address);
     }
 
