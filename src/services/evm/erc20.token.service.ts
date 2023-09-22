@@ -19,7 +19,7 @@ const initializeWeb3 = async (rpcUrl:string) => {
 
 // initialize contract
 const initializeErc20Contact = async (web3:any, contractAddress:string) => {
-  const tokenContract = new (await web3).eth.Contract(JSON.parse(ERC20_ABI), contractAddress);
+  const tokenContract = new (await initializeWeb3(web3)).eth.Contract(JSON.parse(ERC20_ABI), contractAddress);
   return tokenContract;
 }
 
@@ -182,7 +182,16 @@ const sendErc20Token = async(
     let amount:any = amount_value;
     console.log('requested amount =', amount);
     const web3 = await initializeWeb3(rpcUrl);
-
+    console.log('rpcUrl', rpcUrl);
+    console.log('contractAddress', contractAddress);
+    console.log('coin_type', coin_type);
+    console.log('native_currency', native_currency);
+    console.log('nativeDecimal', nativeDecimal);
+    console.log('gas_limit', gas_limit);
+    console.log('from_address', from_address);
+    console.log('to_address', to_address);
+    console.log('pk', pk);
+    console.log('amount_value', amount_value);
     const validateToAddress = Web3.utils.isAddress(to_address);
     if (validateToAddress) {
       let gasPrice =  await web3.eth.getGasPrice();
@@ -192,8 +201,8 @@ const sendErc20Token = async(
       amount = customToWei(amount_value, decimalValue);
       console.log("sendable amount =", amount);
 
-      const toAddress = Web3.utils.toChecksumAddress(from_address);
-      const fromAddress = Web3.utils.toChecksumAddress(to_address);
+      const toAddress = Web3.utils.toChecksumAddress(to_address);
+      const fromAddress = Web3.utils.toChecksumAddress(from_address);
 
       const call = await initializeContract.methods.transfer(toAddress, amount);
 
