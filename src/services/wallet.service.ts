@@ -148,9 +148,7 @@ const walletWithdrawalService = async (request: any) => {
   };
 
   // this code will be executed in queue, start here
-
-  
-
+  executeWithdrawal(data);
   // this code will be executed in queue, end here
 
   // check admin approval
