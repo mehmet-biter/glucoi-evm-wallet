@@ -20,10 +20,11 @@ const sendEth = async (req: Request, res: Response) => {
     return successResponse(res,'executed');
 }
 
-const checkDeposit = async(res: Response) => {
+const checkDeposit = async(req: Request, res: Response) => {
     const response = await checkCoinDeposit();
     console.log('checkDeposit', 'executed');
-    return successResponse(res,'executed');
+    // console.log(response)
+    return successResponse(res,'executed',response);
 }
 
 export default {

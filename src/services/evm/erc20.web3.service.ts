@@ -316,68 +316,60 @@ const getAddressByPrivateKey = async(rpcUrl:string, pk:string) => {
 const getLatestBlockNumber = async(web3:any) => {
   return await web3.eth.getBlockNumber();
 }
+// get block 
+const getBlockData = async(web3:any,blockNumber:number) => {
+  return await web3.eth.getBlock(blockNumber, true);
+}
+
+// get block transaction count
+const getBlockTransactionCount = async(web3:any,blockNumber:number) => {
+  return await web3.eth.getBlockTransactionCount(blockNumber, true);
+}
 
 // get latest transaction
 const getLatestTransaction = async(
   rpcUrl:string,
   fromBlockNumber?: number,
-  block_count?: number,
   ) => {
   try {
     console.log('getLatestTransaction', 'called')
     const web3:any = await initializeWeb3(rpcUrl);
-    let prevBlock = 10;
-    if (block_count && block_count > 0) {
-      prevBlock =  block_count;
+    let blockNumber = await getLatestBlockNumber(web3);
+    
+    if(fromBlockNumber && fromBlockNumber > 0) {
+      blockNumber = fromBlockNumber
     }
 
     let resultData:any = [];
-    web3.eth.getBlockNumber()
-      .then(async (latestBlockNumber:any) => {
-        let fromBlock = 0;
-        if (fromBlockNumber && fromBlockNumber > 0) {
-          if ((latestBlockNumber - fromBlockNumber) > 5000) {
-            fromBlock = latestBlockNumber - prevBlock;
-          } else {
-            fromBlock =  fromBlockNumber;
-          }
-        } else {
-          fromBlock = latestBlockNumber - prevBlock;
-        }
-        // Set the block range to fetch transactions
-        const startBlock = fromBlock; // Adjust as needed
-        const endBlock = latestBlockNumber;
-        console.log('startBlock => ', startBlock);
-        console.log('endBlock => ', endBlock);
+    console.log('blockNumber', blockNumber)
+    const txCount = await getBlockTransactionCount(web3,blockNumber);
+    const blockData = await getBlockData(web3,blockNumber);
+    console.log('txCount', txCount)
+    if(blockData && blockData.transactions) {
+      blockData.transactions.forEach((res:any) => {
+        // console.log('res => ',res);
 
-        // Fetch transactions within the specified block range
-        for (let blockNumber = startBlock; blockNumber <= endBlock; blockNumber++) {
-          const block = await web3.eth.getBlock(blockNumber, true);
-          if (block && block.transactions) {
-            // Process and log transactions from the block
-            block.transactions.forEach((res:any) => {
-              // console.log('res => ',res);
-
-              let innerData = {
-                  tx_hash: res.hash,
-                  block_hash: res.blockHash,
-                  from_address: res.from,
-                  to_address: res.to,
-                  amount: Web3.utils.fromWei(res.value, 'ether'),
-                  block_number: block.number,
-                  gas_used: res.gasUsed,
-                  gas_price: res.gasPrice
-              };
-              resultData.push(innerData)
-            
-            });
-          }
-        }
-      })
-      .catch((error:any) => {
-        console.error(error);
-        return generateErrorResponse(error.stack)
+        let innerData = {
+            tx_hash: res.hash,
+            block_hash: res.blockHash,
+            from_address: res.from,
+            to_address: res.to,
+            amount: Web3.utils.fromWei(res.value, 'ether'),
+            block_number: blockData.number,
+            gas: res.gas,
+            gas_price: res.gasPrice,
+            input:res.input,
+            nonce:res.nonce,
+            transactionIndex:res.transactionIndex,
+            value: res.value,
+            type:res.type,
+            chain_id: res.chainId
+        };
+        resultData.push(innerData)
+      
       });
+    }
+    
       // console.log('resultData', resultData)
 
     return generateSuccessResponse("success", resultData);  

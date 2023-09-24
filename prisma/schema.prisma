@@ -1391,6 +1391,7 @@ model wallet_address_histories {
   public_key String?   @db.Text
   created_at DateTime? @db.Timestamp(0)
   updated_at DateTime? @db.Timestamp(0)
+  coin_id    BigInt?   @db.UnsignedBigInt
 }
 
 model wallet_co_users {
@@ -1517,7 +1518,7 @@ model coin_networks {
   uid              String
   network_id       Int       @db.UnsignedInt
   currency_id      Int       @db.UnsignedInt
-  type             String
+  type             Int       @db.TinyInt
   contract_address String
   status           Int       @default(0) @db.TinyInt
   created_at       DateTime? @db.Timestamp(0)
