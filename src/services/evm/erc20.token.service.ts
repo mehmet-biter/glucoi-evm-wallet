@@ -19,6 +19,7 @@ const initializeWeb3 = async (rpcUrl:string) => {
 
 // initialize contract
 const initializeErc20Contact = async (web3:any, contractAddress:string) => {
+  console.log('initializeErc20Contact','called');
   const tokenContract = new (await initializeWeb3(web3)).eth.Contract(JSON.parse(ERC20_ABI), contractAddress);
   return tokenContract;
 }
@@ -251,7 +252,7 @@ const getERC20tokenTransactionDetails = async(
     if (checkHash) {
       const response = await getTransaction(rpcUrl,tx);
       if (response) {
-        const contract = await initializeErc20Contact(web3,contractAddress);
+        const contract = await initializeErc20Contact(rpcUrl,contractAddress);
          // Decode the input data using the ERC20 token ABI
          const types = ["address", "uint256"];
 
@@ -304,7 +305,7 @@ const getContractDetails = async(
     }
     const web3 = await initializeWeb3(rpcUrl);
     
-    const contract = await initializeErc20Contact(web3,contractAddress);
+    const contract = await initializeErc20Contact(rpcUrl,contractAddress);
     
     data.chain_id = await web3.eth.net.getId();
     data.symbol = await getContractSymbol(contract);
@@ -327,7 +328,7 @@ const getLatestEvent = async(
 ) => {
   try {
     const web3 = await initializeWeb3(rpcUrl);
-    const contract = await initializeErc20Contact(web3,contractAddress);
+    const contract = await initializeErc20Contact(rpcUrl,contractAddress);
     const decimalValue = await contractDecimal(contract);
     const latestBlockNumber = await getLatestBlockNumber(web3);
     let prevBlock = 100;
@@ -394,6 +395,34 @@ const getBlockDetails = async(contract:any,fromBlockNumber:number,toBlockNumber:
   }
 }
 
+// decode input parameter for input
+const decodeInputParameter = async(rpcUrl:string,contractAddress:string,inputs:any) => {
+  // console.log('decodeInputParameter',rpcUrl);
+  // console.log('contractAddress',contractAddress);
+  // console.log('inputs',inputs);
+  const web3 = await initializeWeb3(rpcUrl);
+  // console.log('web3', 'ok');
+  const contract = await initializeErc20Contact(rpcUrl,contractAddress);
+  // console.log('contract', 'ok');
+  const types = ["address", "uint256"];
+
+  // Decode the input data using the types of the function arguments
+  const input = web3.eth.abi.decodeParameters(
+      types,
+      inputs.substring(10)
+  );
+// The amount of tokens transferred is the second parameter
+  let amount = input[1];
+  let toAddress = input[0];
+  const tokenDecimal = await contractDecimal(contract);
+
+  amount = customFromWei(amount, tokenDecimal);
+  const data = {
+    amount:amount,
+    to_address : toAddress,
+  }
+  return data;
+}
 
 export {
   getEthTokenBalance,
@@ -402,5 +431,6 @@ export {
   getERC20tokenTransactionDetails,
   getContractDetails,
   getBlockDetails,
-  getLatestEvent
+  getLatestEvent,
+  decodeInputParameter
 };

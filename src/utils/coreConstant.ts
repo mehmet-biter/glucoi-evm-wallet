@@ -15,3 +15,4 @@ export const ADDRESS_TYPE_INTERNAL = 2;
 
 export const TOKEN_COIN = 1;
 export const NATIVE_COIN = 2;
+

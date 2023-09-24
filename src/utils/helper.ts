@@ -4,6 +4,7 @@ import BigNumber from "bignumber.js";
 import Web3 from "web3";
 import _sodium from "libsodium-wrappers";
 import { WITHDRAWAL_FIXED_FEES } from "../utils/coreConstant";
+const crypto = require('crypto');
 
 export function setApp() {
 
@@ -141,4 +142,11 @@ export const convertCoinAmountFromInt = (
     }
   
     return randomString;
+  }
+
+  export function createUniqueCode() {
+    let date = new Date().getTime();
+    const id = crypto.randomBytes(12).toString('hex');
+    const data = id + date;
+    return data;
   }
