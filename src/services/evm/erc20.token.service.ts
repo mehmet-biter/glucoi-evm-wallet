@@ -44,7 +44,7 @@ const getEthTokenBalance = async (rpcUrl: string, address:string, contractAddres
   let balance:any = 0;
   try {
     const connectWeb3: any = await initializeWeb3(rpcUrl);
-    const tokenContract = await initializeErc20Contact(connectWeb3, contractAddress)
+    const tokenContract = await initializeErc20Contact(rpcUrl, contractAddress)
     
     const tokenBalance = await tokenContract.methods.balanceOf(address).call();
     const tokenDecimal = await contractDecimal(tokenContract);
@@ -182,16 +182,7 @@ const sendErc20Token = async(
     let amount:any = amount_value;
     console.log('requested amount =', amount);
     const web3 = await initializeWeb3(rpcUrl);
-    console.log('rpcUrl', rpcUrl);
-    console.log('contractAddress', contractAddress);
-    console.log('coin_type', coin_type);
-    console.log('native_currency', native_currency);
-    console.log('nativeDecimal', nativeDecimal);
-    console.log('gas_limit', gas_limit);
-    console.log('from_address', from_address);
-    console.log('to_address', to_address);
-    console.log('pk', pk);
-    console.log('amount_value', amount_value);
+
     const validateToAddress = Web3.utils.isAddress(to_address);
     if (validateToAddress) {
       let gasPrice =  await web3.eth.getGasPrice();
@@ -243,7 +234,7 @@ const sendErc20Token = async(
       return generateErrorResponse("Invalid address");
     }
   } catch(err:any) {
-    console.log(err);
+    console.log(err.message);
     return generateErrorResponse(err.stack)
   }
 }
