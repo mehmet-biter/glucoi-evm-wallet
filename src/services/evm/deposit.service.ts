@@ -226,7 +226,12 @@ const depositUserWallet = async(depositData:any) => {
                     address:depositData[x].address
                 }
             });
-            if (!checkTransaction) {
+            const checkSystemWallet = await prisma.admin_wallet_keys.findFirst({
+                where:{
+                    address:depositData[x].from_address
+                }
+            });
+            if (!checkTransaction && !checkSystemWallet) {
                 const date = new Date();
                 let prepare = depositData[x]
                 prepare.address_type = (depositData[x].address_type).toString();
