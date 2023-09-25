@@ -3,6 +3,8 @@ import { sendEthCoin } from "../services/evm/erc20.web3.service";
 import { Request, Response } from "express";
 import { errorResponse, successResponse } from "../utils/common";
 import { sendErc20Token } from "../services/evm/erc20.token.service";
+import { generateErrorResponse } from "../utils/commonObject";
+import prisma from "../client";
 
 
 const checkEvmDeposit = async(req: Request, res: Response) => {
@@ -30,9 +32,29 @@ const sendTokenTest = async(req: Request, res: Response) => {
     } else {
         return errorResponse(res,response.message,response.data);
     }
-    
+}
+
+// receive deposit coin from user address to admin address
+const receiveDepositCoin = async(transaction:any) => {
+    try {
+        if(transaction && transaction.network_id) {
+            const network_id = transaction.network_id;
+            const coin_id = transaction.coin_id;
+            const coinNetwork = await prisma.$queryRaw`
+            SELECT * FROM coin_networks
+            JOIN networks ON networks.id = coin_networks.network_id
+            where coin_networks.network_id = ${network_id} and coin_networks.coin_id = ${coin_id}`;
+            console.log(coinNetwork);
+        } else {
+            return generateErrorResponse('Transaction or network not found');
+        }
+    } catch(err:any) {
+        console.log(err);
+        return generateErrorResponse(err.stack)
+    }
 }
 export default {
     checkEvmDeposit,
-    sendTokenTest
+    sendTokenTest,
+    receiveDepositCoin
 }
