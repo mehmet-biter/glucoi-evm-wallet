@@ -3,7 +3,7 @@ import Web3 from "web3";
 import { EVM_BASE_COIN, STATUS_ACTIVE } from "../../utils/coreConstant";
 import { generateErrorResponse, generateSuccessResponse } from "../../utils/commonObject";
 import { ERC20_ABI } from "../../contract/erc20.token.abi";
-import { REGEX, addNumbers, convertCoinAmountFromInt, convertCoinAmountToInt, customFromWei, minusNumbers, multiplyNumbers, sleep } from "../../utils/helper";
+import { REGEX, addNumbers, convertCoinAmountFromInt, convertCoinAmountToInt, customFromWei, customToWei, minusNumbers, multiplyNumbers, sleep } from "../../utils/helper";
 import { TransactionConfig, TransactionReceipt, Transaction } from 'web3-core';
 
 
@@ -73,17 +73,24 @@ const estimateEthFee = async (
     const tx: TransactionConfig = {
       from: Web3.utils.toChecksumAddress(fromAddress),
       to: Web3.utils.toChecksumAddress(toAddress),
-      value: convertCoinAmountToInt(amount,coinDecimal),
+      value: customToWei(amount,coinDecimal),
       gasPrice: gasPrice.toString(),
       gas: gasLimit.toString()
     };
 
-    const maxFee = Number(convertCoinAmountToInt(
-      multiplyNumbers(gasLimit,Number(gasPrice)),coinDecimal,)
-    );
+    // const maxFee = Number(convertCoinAmountToInt(
+    //   multiplyNumbers(gasLimit,Number(gasPrice)),coinDecimal,)
+    // );
+    let maxFee = customFromWei(multiplyNumbers(gasLimit, Number(gasPrice)),coinDecimal);
 
-    const balanceRequired = addNumbers(Number(maxFee),amount);
-    const balance = await getEthBalance(rpcUrl,fromAddress);
+    
+    maxFee = parseFloat(maxFee.toString()).toFixed(coinDecimal);
+    console.log('maxFee', maxFee);
+    const balanceRequired = parseFloat((addNumbers(Number(maxFee),amount)).toString()).toFixed(coinDecimal);
+    const balanceData:any = await getEthBalance(rpcUrl,fromAddress);
+    const balance = balanceData['data'];
+    console.log('balance', balance)
+    console.log('balanceRequired', balanceRequired)
 
     if (Number(balanceRequired) > Number(balance)) {
       const balanceShortage = minusNumbers(
@@ -92,9 +99,7 @@ const estimateEthFee = async (
       );
       message = `${'Insufficient '} ${coinType} ${
         'balance including fee'}!!\n
-       ${'balance required'}: ${balanceRequired.toFixed(
-        10,
-      )} ${coinType},\n
+       ${'balance required'}: ${balanceRequired} ${coinType},\n
        ${'balance exists'}: ${balance} ${coinType},\n
        ${'balance shortage'}: ${balanceShortage.toFixed(
         12,
@@ -117,16 +122,12 @@ const estimateEthFee = async (
       // console.log('\n');
       return generateErrorResponse(message);
     }
-
-    const estimatedFee = Number(
-      convertCoinAmountFromInt(
-        multiplyNumbers(gas, Number(gasPrice)),
-        coinDecimal,
-      ),
-    );
+    const estimatedFee = customFromWei(multiplyNumbers(gas, Number(gasPrice)),coinDecimal);
+    const nowFees = parseFloat(estimatedFee.toString()).toFixed(coinDecimal);
+    
 
     return generateSuccessResponse('success', {
-      fee:estimateEthFee
+      fee:estimatedFee
     })
 
   } catch( err ) {
@@ -154,7 +155,7 @@ const sendEthCoin = async (
     const tx: TransactionConfig = {
       from: fromAddress,
       to: Web3.utils.toChecksumAddress(to_address),
-      value: convertCoinAmountToInt(amount, coinDecimal),
+      value: customToWei(amount, coinDecimal),
       gasPrice: gasPrice.toString(),
       gas: gasLimit.toString(),
     };
@@ -209,9 +210,12 @@ const executeEthTransaction = async(
     logs: [],
     logsBloom: '',
   };
+  
   try {
     txObj = await connectWeb3.eth.sendSignedTransaction(signedTx.rawTransaction);
+    console.log('txObj', txObj)
   } catch(e:any) {
+    console.log('executeEthTransaction ex', e);
     if (!e.message.includes('Transaction was not mined within')) {
       console.error(
         `coin send error on network: ${coin_type}, tx hash: ${signedTx.transactionHash}`,
@@ -226,7 +230,7 @@ const executeEthTransaction = async(
   if (waitForConfirm) {
     await waitForTxConfirmed(txObj, connectWeb3, blockConfirmation);
   }
-  return generateSuccessResponse('Coin send successfully',txObj);;
+  return generateSuccessResponse('Coin send successfully',txObj);
 }
 
 

@@ -6,6 +6,7 @@ import { ERC20_ABI } from "../../contract/erc20.token.abi";
 import { REGEX, addNumbers, convertCoinAmountFromInt, convertCoinAmountToInt, customFromWei, customToWei, minusNumbers, multiplyNumbers, sleep } from "../../utils/helper";
 import { TransactionConfig, TransactionReceipt, Transaction } from 'web3-core';
 import { executeEthTransaction, getEthBalance, getLatestBlockNumber, getTransaction, validateTxHash } from "./erc20.web3.service";
+import { number } from "joi";
 
 
 const prisma = new PrismaClient();
@@ -89,6 +90,7 @@ const estimateEthTokenFee = async (
     const getTokenBalance = await getEthTokenBalance(rpcUrl,from_address,contractAddress);
     const balance = getTokenBalance['data'];
 
+    console.log('balance => ', balance)
     if (Number(balanceRequired) > Number(balance)) {
       const balanceShortage = minusNumbers(
         Number(balanceRequired),
@@ -108,14 +110,11 @@ const estimateEthTokenFee = async (
     }
 
     //  fee balance checking 
-    const maxFee = Number(
-      convertCoinAmountFromInt(
-        multiplyNumbers(gas_limit, Number(gas_price)),
-        nativeDecimal,
-      ),
-    );
-    const feeBalanceRequired = maxFee;
-
+    const maxFee = customFromWei(multiplyNumbers(gas_limit, Number(gas_price)),nativeDecimal);
+    
+    console.log('maxFee => ', maxFee)
+    const feeBalanceRequired = parseFloat(maxFee.toString()).toFixed(nativeDecimal);
+    console.log('feeBalanceRequired => ', feeBalanceRequired)
     const getFeesBalance = await getEthBalance(rpcUrl,fromAddress);
     const feeBalance = getFeesBalance['data'];
 
@@ -125,12 +124,10 @@ const estimateEthTokenFee = async (
         Number(feeBalance),
       );
       message = `${'Insufficient '} ${nativeCurrency} ${' Fee balance'}!!\n
-       ${'Fee balance required '}: ${feeBalanceRequired.toFixed(
-        10,
-      )} ${nativeCurrency},\n
-       ${'Fee balance exists'}: ${feeBalance.toFixed(10)} ${nativeCurrency},\n
+       ${'Fee balance required '}: ${feeBalanceRequired} ${nativeCurrency},\n
+       ${'Fee balance exists'}: ${feeBalance.toFixed(nativeDecimal)} ${nativeCurrency},\n
        ${'Fee balance shortage '}: ${feeBalanceShortage.toFixed(
-        12,
+        nativeDecimal,
       )} ${nativeCurrency}`;
       // console.log(message);
       return generateErrorResponse(message, { maxFee: maxFee });
@@ -139,6 +136,7 @@ const estimateEthTokenFee = async (
     const call = await initializeContract.methods.transfer(to_address,tokenAmount);
 
     const gas = await call.estimateGas({from:from_address});
+    console.log('gas => ', gas)
     if (gas > gasLimit) {
       message = `Network is too busy now, Fee is too high. ${
         'Sending'
@@ -150,14 +148,10 @@ const estimateEthTokenFee = async (
       return generateErrorResponse(message);
     }
 
-    const estimatedFee = Number(
-      convertCoinAmountFromInt(
-        multiplyNumbers(gas, Number(gas_price)),
-        nativeDecimal,
-      ),
-    );
+    const estimatedFee = customFromWei(multiplyNumbers(gas, Number(gas_price)),nativeDecimal);
+    const nowFees = parseFloat(estimatedFee.toString()).toFixed(nativeDecimal);
     return generateSuccessResponse('success', {
-      fee: estimatedFee,
+      fee: nowFees,
     });
   } catch(err:any) {
     console.log(err)
@@ -187,7 +181,9 @@ const sendErc20Token = async(
     const validateToAddress = Web3.utils.isAddress(to_address);
     if (validateToAddress) {
       let gasPrice =  await web3.eth.getGasPrice();
-      gasPrice = Web3.utils.fromWei(gasPrice.toString(), 'ether');
+      console.log('gasPrice', gasPrice)
+      // gasPrice = Web3.utils.fromWei(gasPrice.toString(), 'ether');
+      console.log('gasPrice => ', gasPrice)
       const initializeContract = await initializeErc20Contact(rpcUrl,contractAddress);
       const decimalValue = await contractDecimal(initializeContract);
       amount = customToWei(amount_value, decimalValue);
@@ -209,10 +205,12 @@ const sendErc20Token = async(
         toAddress,
         amount_value
         );
+        console.log('estimateEthTokenFee', response)
       if (response.success == false) {
         return response;
       }  
       let nonce = await web3.eth.getTransactionCount(fromAddress,'latest');
+      
       const tx:TransactionConfig = {
         from: fromAddress,
         nonce: nonce,
