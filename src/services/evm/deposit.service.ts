@@ -130,7 +130,7 @@ const checkNativeDepositAddress = async(rpcUrl:string,res:any) => {
                     where:{
                         network_id:wallet.network_id,
                         currency_id:Number(wallet.coin_id),
-                        type: NATIVE_COIN
+                        type: NATIVE_COIN.toString()
                     }
                 });
                 if (checkNative) {
