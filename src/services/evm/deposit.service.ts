@@ -4,49 +4,58 @@ import { ADDRESS_TYPE_EXTERNAL, EVM_BASE_COIN, NATIVE_COIN, TOKEN_COIN, TRON_BAS
 import { getLatestTransaction } from "./erc20.web3.service";
 import { number } from "joi";
 import { decodeInputParameter } from "./erc20.token.service";
-import { createUniqueCode } from "../../utils/helper";
+import { addNumbers, createUniqueCode } from "../../utils/helper";
 
 const prisma = new PrismaClient();
 
 const checkCoinDeposit = async() => {
     try {
-        const transactions = await getLatestTransaction('https://rpc.ankr.com/eth_goerli',9004290);
-        console.log('sss');
         let resultData: any = [];
-
-        if (transactions && transactions.data.length > 0) {
-        // Use map to create an array of promises
-        const promises = transactions.data.map(async (res: any) => {
-            const checkDeposit: any = await checkNativeDepositAddress('https://rpc.ankr.com/eth_goerli',res);
-            if (checkDeposit) {
-            // console.log('checkDeposit', checkDeposit);
-            // const innerData = {
-            //     wallet_id: checkDeposit.wallet_id.toString(),
-            //     id: checkDeposit.id.toString(),
-            //     network_id: checkDeposit.network_id.toString(),
-            //     user_id: checkDeposit.user_id.toString(),
-            //     address: checkDeposit.address,
-            //     coin_type: checkDeposit.coin_type,
-            //     coin_id: checkDeposit.coin_id
-            // };
-            // console.log('innerData', innerData);
-            resultData.push(checkDeposit);
-            }
-        });
-
-        // Wait for all promises to resolve
-        await Promise.all(promises);
-        }
-        console.log('resultData.....', resultData)
-        console.log('checkCoinDeposit', 'executed');
-        return resultData;
         const networkData:any = await prisma.$queryRaw`
         SELECT * 
         FROM networks 
         JOIN notified_blocks ON networks.id = notified_blocks.network_id
-        JOIN supported_networks ON supported_networks.slug = networks.slug
-        JOIN coin_networks ON networks.id = coin_networks.network_id
-        WHERE coin_networks.status = 1`;
+        WHERE networks.status = 1`;
+
+        if(networkData && networkData.length > 0) {
+            for(let x = 0; x < networkData.length; x++) {
+                if (networkData[x].rpc_url) {
+                    if(networkData[x].base_type == EVM_BASE_COIN) {
+                        
+                        let setBlockNumber = networkData[x].block_number;
+                        const transactions = await getLatestTransaction(networkData[x].rpc_url,networkData[x].block_number);
+                        if (transactions && transactions.data.length > 0) {
+                            const promises = transactions.data.map(async (res: any) => {
+                                const checkDeposit: any = await checkNativeDepositAddress(networkData[x].rpc_url,res);
+                                if (checkDeposit) {
+                                resultData.push(checkDeposit);
+                                }
+                                setBlockNumber = res.block_number
+                            });
+                            await Promise.all(promises);
+                            }
+                        await updateNetworkBlockNumber(networkData[x].network_id,setBlockNumber);    
+                    }
+                }
+            }
+        }
+        // const transactions = await getLatestTransaction('https://rpc.ankr.com/eth_goerli',9004290);
+        
+
+        
+        console.log('resultData.....', resultData)
+        console.log('checkCoinDeposit', 'executed');
+        if (resultData && resultData.length > 0 ) {
+            await depositUserWallet(resultData);
+        }
+        return [];
+        // const networkData:any = await prisma.$queryRaw`
+        // SELECT * 
+        // FROM networks 
+        // JOIN notified_blocks ON networks.id = notified_blocks.network_id
+        // JOIN supported_networks ON supported_networks.slug = networks.slug
+        // JOIN coin_networks ON networks.id = coin_networks.network_id
+        // WHERE coin_networks.status = 1`;
         console.log('networks', networkData);
         if (networkData.length > 0) {
             networkData.map(async (network:any) => {
@@ -113,7 +122,6 @@ const checkNativeDepositAddress = async(rpcUrl:string,res:any) => {
                 address:address
             }
         });
-     
         
         if (walletAddress && walletAddress.length > 0) {
             for(let i=0; i<walletAddress.length; i++) {
@@ -145,7 +153,7 @@ const checkNativeDepositAddress = async(rpcUrl:string,res:any) => {
                             confirmations : 1,
                             from_address : res.from_address,
                             network_type : Number(walletAddress.network_id),
-                            uid : createUniqueCode(),
+                            // uid : createUniqueCode(),
                             network_id : Number(walletAddress.network_id),
                             block_number : res.block_number,
                             coin_id :Number(walletAddress.coin_id),
@@ -153,7 +161,6 @@ const checkNativeDepositAddress = async(rpcUrl:string,res:any) => {
                     }
                 } 
             }
-            
         } else {
             const checkContractAddress = await prisma.coin_networks.findFirst({
                 where:{
@@ -208,19 +215,61 @@ const checkNativeDepositAddress = async(rpcUrl:string,res:any) => {
     console.log('walletAddressData => ',walletAddressData)
     return walletAddressData;
 }
-// update coin block number
-const updateNetworkBlockNumber = async(network_id:number,type:number,block_number:any) => {
-    let data:any=[];
-    if (type == TOKEN_COIN) {
-        data.block_number = block_number;
-    } else {
-        data.token_block_number = block_number;
+
+// insert deposit to user wallet
+const depositUserWallet = async(depositData:any) => {
+    if (depositData && depositData.length > 0) {
+        for(let x = 0; x < depositData.length; x++) {
+            const checkTransaction = await prisma.deposite_transactions.findFirst({
+                where:{
+                    transaction_id: depositData[x].transaction_id,
+                    address:depositData[x].address
+                }
+            });
+            if (!checkTransaction) {
+                const date = new Date();
+                let prepare = depositData[x]
+                prepare.address_type = (depositData[x].address_type).toString();
+                prepare.network_type = (depositData[x].network_type).toString();
+                prepare.block_number = (depositData[x].block_number).toString();
+                prepare.created_at = date.toISOString();
+                prepare.updated_at = date.toISOString();
+                const createDeposit = await prisma.deposite_transactions.create({
+                    data:prepare
+                });
+                console.log('createDeposit',createDeposit);
+                if (createDeposit) {
+                    const senderWalletUpdate = await prisma.wallets.update({
+                        where: { id: Number(createDeposit?.receiver_wallet_id) },
+                        data: {
+                          balance: {
+                            increment: createDeposit?.amount
+                          },
+                        },
+                      });
+                      console.log('senderWalletUpdate', senderWalletUpdate)
+                }
+            }
+        }
     }
-    console.log(data)
-    // await prisma.notified_blocks.update({
-    //     where:{network_id:network_id},
-    //     data:data
-    // })
+}
+// update coin block number
+const updateNetworkBlockNumber = async(network_id:any,block_number:number) => {
+    let data:any=[];
+    console.log(' updateNetworkBlockNumber network_id =>', network_id)
+    console.log(' updateNetworkBlockNumber block_number =>', block_number)
+    let blockNumber:any = addNumbers(block_number,1);
+    console.log('blockNumber', blockNumber)
+    blockNumber = blockNumber.toString();
+    console.log(data,'updateNetworkBlockNumber')
+    await prisma.notified_blocks.updateMany({
+        where:{
+            network_id:Number(network_id)
+        },
+        data:{
+            block_number: blockNumber
+        }
+    })
 }
 
 export {
