@@ -331,7 +331,7 @@ const acceptPendingExternalWithdrawal = async (withdrawal_history:any, adminID:a
   }
   let currency = withdrawal_history.coin_type;
   let coin = await prisma.coins.findFirst({ where: { coin_type: currency } });
-  let network:any = await prisma.networks.findFirst({ where: { id: withdrawal_history.network_id } });
+  let network:any = await prisma.networks.findFirst({ where: { id: Number(withdrawal_history.network_id) } });
   let senderWallet = await prisma.wallet_address_histories.findFirst({ where: { wallet_id: Number(withdrawal_history.wallet_id), network_id: Number(network.id) } });
   let supportNetwork = await prisma.supported_networks.findFirst({ where: { slug: network?.slug } });
   let adminWallet = await prisma.admin_wallet_keys.findFirst({ where: { network_id: Number(network.id) } });
@@ -487,7 +487,7 @@ const adminAcceptPendingWithdrawal = async (request:any) => {
 
   let wallet = await prisma.wallets.findFirst({ where: { id: withdrawHistory.wallet_id } });
   let user = await prisma.users.findFirst({ where: { id: withdrawHistory.user_id } });
-  let network = await prisma.networks.findFirst({ where: { id: withdrawHistory.network_id } });
+  let network = await prisma.networks.findFirst({ where: { id: Number(withdrawHistory.network_id) } });
 
   if(withdrawHistory.address_type == ADDRESS_TYPE_INTERNAL){
     await prisma.deposite_transactions.updateMany({
