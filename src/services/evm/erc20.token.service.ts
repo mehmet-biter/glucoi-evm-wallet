@@ -106,13 +106,17 @@ const estimateEthTokenFee = async (
 
     //  fee balance checking 
     const maxFee = customFromWei(multiplyNumbers(gas_limit, Number(gas_price)),nativeDecimal);
+    const maxFee2 = multiplyNumbers(gas_limit, Number(gas_price));
+    const maxFee3 = customToWei(multiplyNumbers(gas_limit, Number(gas_price)),nativeDecimal);
     
     console.log('maxFee => ', maxFee)
+    console.log('maxFee2 => ', maxFee2)
+    console.log('maxFee3 => ', maxFee3)
     const feeBalanceRequired = parseFloat(maxFee.toString()).toFixed(nativeDecimal);
     console.log('feeBalanceRequired => ', feeBalanceRequired)
     const getFeesBalance = await getEthBalance(rpcUrl,fromAddress);
     const feeBalance = getFeesBalance['data'];
-
+    console.log('feeBalance', feeBalance);
     if (Number(feeBalanceRequired) > Number(feeBalance)) {
       const feeBalanceShortage = minusNumbers(
         Number(feeBalanceRequired),
