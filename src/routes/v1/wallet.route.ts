@@ -15,5 +15,6 @@ router.post("/wallet-withdrawal-process", auth(), evmController.walletWithdrawal
 router.get("/check-deposit", depositController.checkEvmDeposit);
 router.post("/send-token", depositController.sendTokenTest);
 router.post("/withdrawal-approve-by-admin", auth(), evmController.walletWithdrawalApprove);
+router.post("/receive-deposit-coin",depositController.receiveDepositCoin);
 
 export default router;
