@@ -34,5 +34,5 @@ const sendTokenTest = async(req: Request, res: Response) => {
 }
 export default {
     checkEvmDeposit,
-    sendTokenTest
+    sendTokenTest,
 }

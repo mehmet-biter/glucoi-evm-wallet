@@ -481,8 +481,40 @@ const checkBaseType = (type: number): boolean => {
    return (type == TRON_BASE_COIN || type == EVM_BASE_COIN);
 }
 
+const adminAcceptPendingWithdrawal = async (request:any) => {
+  let withdrawHistory = await prisma.withdraw_histories.findFirst({ where: { id: request.id , status: STATUS_PENDING} });
+  if(!withdrawHistory) return generateErrorResponse("Withdraw history not found");
+
+  let wallet = await prisma.wallets.findFirst({ where: { id: withdrawHistory.wallet_id } });
+  let user = await prisma.users.findFirst({ where: { id: withdrawHistory.user_id } });
+  let network = await prisma.networks.findFirst({ where: { id: withdrawHistory.network_id } });
+
+  if(withdrawHistory.address_type == ADDRESS_TYPE_INTERNAL){
+    await prisma.deposite_transactions.updateMany({
+      where: { transaction_id: withdrawHistory.transaction_hash , address: withdrawHistory.address },
+      data:{ status: STATUS_ACTIVE, updated_by: request.user.user_details.id }
+    });
+
+    await prisma.wallets.update({
+      where:{ id: Number(withdrawHistory.receiver_wallet_id) },
+      data: { balance:{ increment: withdrawHistory.amount } }
+    });
+    
+    await prisma.withdraw_histories.update({
+      where:{ id: withdrawHistory.id },
+      data:{ status: STATUS_ACTIVE, updated_by: request.user.user_details.id }
+    });
+
+    return generateSuccessResponse("Pending withdrawal accepted successfully.");
+  } else if (withdrawHistory.address_type == ADDRESS_TYPE_EXTERNAL){
+      return await acceptPendingExternalWithdrawal(withdrawHistory,"");
+  }
+  return generateSuccessResponse("Withdrawal requeste is invalid");
+}
+
 export {
     createAddress,
     createSystemAddress,
     walletWithdrawalService,
+    adminAcceptPendingWithdrawal,
 }
