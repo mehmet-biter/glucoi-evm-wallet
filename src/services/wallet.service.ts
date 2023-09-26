@@ -181,7 +181,7 @@ const walletWithdrawalService = async (request: any) => {
   // check admin approval
   if(coin.admin_approval == STATUS_ACTIVE)
       return generateSuccessResponse("Withdrawal process started successfully. Please wait for admin approval");
-  return generateSuccessResponse("Withdrawal process started successfully. We will notify you the result soon");
+  return generateSuccessResponse("Withdrawal request placed successfully.");
 }
 
 const executeWithdrawal = async (data:any) => {
@@ -235,7 +235,9 @@ const executeWithdrawal = async (data:any) => {
         }
   
       }
-  
+      const date = new Date();
+      makeData.created_at = date.toISOString();
+      makeData.updated_at = date.toISOString();
       makeData.amount         = data.amount;
       makeData.fees           = fees;
       makeData.receiverWallet = receiverWallet;
@@ -336,7 +338,7 @@ const acceptPendingExternalWithdrawal = async (withdrawal_history:any, adminID:a
   let supportNetwork = await prisma.supported_networks.findFirst({ where: { slug: network?.slug } });
   let adminWallet = await prisma.admin_wallet_keys.findFirst({ where: { network_id: Number(network.id) } });
   let coinNetwork = await prisma.coin_networks.findFirst({ where: { network_id: Number(network.id), currency_id: Number(coin?.id) } });
-  console.log('senderWallet',senderWallet, { wallet_id: withdrawal_history.wallet_id });
+  
   if (network  && (network.base_type == EVM_BASE_COIN || network.base_type == TRON_BASE_COIN)) {
       let tokenSendResponse = null;
       if(Number(coinNetwork?.type) == NATIVE_COIN){
@@ -374,7 +376,7 @@ const acceptPendingExternalWithdrawal = async (withdrawal_history:any, adminID:a
               transaction_hash: tokenSendResponse.data.transaction_id,
               used_gas: tokenSendResponse.data.used_gas,
               status: STATUS_ACTIVE,
-              updated_by: adminID,
+              updated_by: Number(adminID),
               automatic_withdrawal: adminID ? 'success' : ''
             } 
           });
@@ -492,7 +494,7 @@ const adminAcceptPendingWithdrawal = async (request:any) => {
   if(withdrawHistory.address_type == ADDRESS_TYPE_INTERNAL){
     await prisma.deposite_transactions.updateMany({
       where: { transaction_id: withdrawHistory.transaction_hash , address: withdrawHistory.address },
-      data:{ status: STATUS_ACTIVE, updated_by: request.user.user_details.id }
+      data:{ status: STATUS_ACTIVE, updated_by: Number(request.user.user_details.id) }
     });
 
     await prisma.wallets.update({
@@ -502,12 +504,12 @@ const adminAcceptPendingWithdrawal = async (request:any) => {
     
     await prisma.withdraw_histories.update({
       where:{ id: withdrawHistory.id },
-      data:{ status: STATUS_ACTIVE, updated_by: request.user.user_details.id }
+      data:{ status: STATUS_ACTIVE, updated_by: Number(request.user.user_details.id) }
     });
 
     return generateSuccessResponse("Pending withdrawal accepted successfully.");
   } else if (withdrawHistory.address_type == ADDRESS_TYPE_EXTERNAL){
-      return await acceptPendingExternalWithdrawal(withdrawHistory,"");
+      return await acceptPendingExternalWithdrawal(withdrawHistory,request.user.user_details.id);
   }
   return generateSuccessResponse("Withdrawal requeste is invalid");
 }

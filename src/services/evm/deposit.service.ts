@@ -113,7 +113,6 @@ const checkNativeDepositAddress = async(rpcUrl:string,res:any) => {
     let tx = res.tx_hash;
     let inputs = res.input;
     let amount = res.amount
-    console.log('address -> ', address);
     let walletAddress:any = null;
     let walletAddressData:any = null;
     if(address) {
