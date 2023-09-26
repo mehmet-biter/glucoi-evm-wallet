@@ -20,7 +20,6 @@ const initializeWeb3 = async (rpcUrl:string) => {
 
 // initialize contract
 const initializeErc20Contact = async (web3:any, contractAddress:string) => {
-  console.log('initializeErc20Contact','called');
   const tokenContract = new (await initializeWeb3(web3)).eth.Contract(JSON.parse(ERC20_ABI), contractAddress);
   return tokenContract;
 }
@@ -97,13 +96,9 @@ const estimateEthTokenFee = async (
         Number(balance),
       );
       message = `${'Insufficient '} ${coinType} ${' balance'}!!\n
-      ${'balance required'}: ${balanceRequired.toFixed(
-        10,
-      )} ${coinType},\n
-      ${'balance exists'}: ${balance.toFixed(10)} ${coinType},\n
-      ${'balance shortage'}: ${balanceShortage.toFixed(
-        12,
-      )} ${coinType}.\n
+      ${'balance required'}: ${balanceRequired} ${coinType},\n
+      ${'balance exists'}: ${balance} ${coinType},\n
+      ${'balance shortage'}: ${balanceShortage} ${coinType}.\n
       ${'Try less amount. Or, '}`;
       // console.log(message);
       return generateErrorResponse(message);
@@ -125,10 +120,8 @@ const estimateEthTokenFee = async (
       );
       message = `${'Insufficient '} ${nativeCurrency} ${' Fee balance'}!!\n
        ${'Fee balance required '}: ${feeBalanceRequired} ${nativeCurrency},\n
-       ${'Fee balance exists'}: ${feeBalance.toFixed(nativeDecimal)} ${nativeCurrency},\n
-       ${'Fee balance shortage '}: ${feeBalanceShortage.toFixed(
-        nativeDecimal,
-      )} ${nativeCurrency}`;
+       ${'Fee balance exists'}: ${feeBalance} ${nativeCurrency},\n
+       ${'Fee balance shortage '}: ${feeBalanceShortage} ${nativeCurrency}`;
       // console.log(message);
       return generateErrorResponse(message, { maxFee: maxFee });
     }
@@ -183,7 +176,6 @@ const sendErc20Token = async(
       let gasPrice =  await web3.eth.getGasPrice();
       console.log('gasPrice', gasPrice)
       // gasPrice = Web3.utils.fromWei(gasPrice.toString(), 'ether');
-      console.log('gasPrice => ', gasPrice)
       const initializeContract = await initializeErc20Contact(rpcUrl,contractAddress);
       const decimalValue = await contractDecimal(initializeContract);
       amount = customToWei(amount_value, decimalValue);
