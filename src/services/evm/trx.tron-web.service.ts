@@ -27,8 +27,8 @@ const createTrxAddress = async (rpcUrl: string) => {
     if (response) {
       const data = {
         address: response.address.base58,
-        privateKey: response.privateKey,
-        publicKey: response.publicKey,
+        pk: response.privateKey,
+        //publicKey: response.publicKey,
       };
 
       return generateSuccessResponse("TRC Wallet created successfully", data);

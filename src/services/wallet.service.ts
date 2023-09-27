@@ -5,6 +5,7 @@ import { generateErrorResponse, generateSuccessResponse } from "../utils/commonO
 import { createEthAddress, sendEthCoin } from "./evm/erc20.web3.service";
 import { custome_encrypt, custome_decrypt, fees_calculator, generateRandomString } from "../utils/helper";
 import { sendErc20Token } from "./evm/erc20.token.service";
+import { createTrxAddress } from "./evm/trx.tron-web.service";
 import console from "console";
 
 const prisma = new PrismaClient();
@@ -12,7 +13,7 @@ const prisma = new PrismaClient();
  const createAddress = async (user:any,coinType: string, network: number) => {
   const User = user.user_details;
   const getNetwork = await getNetworkData(network);
-
+  console.log(getNetwork);
   const userWallet = await getWalletData(Number(User.id), coinType);
   if(!userWallet) return generateErrorResponse("Wallet not found");
 
@@ -45,28 +46,31 @@ const prisma = new PrismaClient();
             address: walletAddresses[0].address,
             wallet_key: walletAddresses[0].wallet_key,
           }
-      });
+        });
+      }
     }
-  }
     
     if(walletAddress && walletAddress.address) {
       return generateSuccessResponse("Wallet address found successfully", walletAddress.address);
     }
 
   if (getNetwork) {
-    let wallet = generateErrorResponse("Invalid base type");
+    let wallet = null;
+
     if (getNetwork.base_type == EVM_BASE_COIN) {
         wallet = await createEthAddress(getNetwork.rpc_url ?? '/');
-          if(await createWalletAddressHistorie(Number(User.id), coinType, Number(getNetwork.id), wallet, userWallet)) {
-            return generateSuccessResponse("Wallet created successfully",wallet.data.address);
-          } else {
-            return generateErrorResponse("Wallet not generated");
-          }
-    } else {
-      wallet = generateErrorResponse("Invalid base type");
+    } else if(getNetwork.base_type == TRON_BASE_COIN) {
+        wallet = await createTrxAddress(getNetwork.rpc_url ?? '/'); 
+    } 
+
+    if(wallet && wallet.success){
+        let walletAddressHistory = await createWalletAddressHistorie(Number(User.id), coinType, Number(getNetwork.id), wallet, userWallet);
+        if(walletAddressHistory) return generateSuccessResponse("Wallet created successfully",wallet.data.address);
+        return generateErrorResponse("Wallet not generated");
     }
+    return generateErrorResponse("Invalid base type");
   }
-  return generateErrorResponse("Network not found"); 
+  return generateErrorResponse("Network not found");
 };
 
  const createSystemAddress = async (user:any, network: number) => {
@@ -119,7 +123,7 @@ const getSystemWalletData = async (network: number) => {
 }
 
 const createWalletAddressHistorie = async (userId:number, coinType:string, networkId:number, wallet:any, userWallet:any) => {
-  if(wallet?.success){
+  if(wallet?.success){ console.log(wallet);
     const walletAddress = await prisma.wallet_address_histories.create({
       data : {
         user_id : userId,

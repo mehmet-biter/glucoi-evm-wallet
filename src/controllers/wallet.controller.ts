@@ -9,8 +9,8 @@ import { generateSuccessResponse } from '../utils/commonObject';
 
 
 const createWallet = async (req: Request, res: Response) => {
-    try {
-        const wallet:any = await createAddress(req.user,req.body.coin_type,req.body.network);
+    try {console.log('wallet 55555');
+        const wallet:any = await createAddress(req.user,req.body.coin_type,req.body.network);console.log('wallet',wallet);
         if (wallet.success) {
             return successResponse(res,wallet.message,wallet.data)
         } else {
