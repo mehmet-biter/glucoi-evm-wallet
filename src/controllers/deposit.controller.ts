@@ -38,33 +38,38 @@ const sendTokenTest = async(req: Request, res: Response) => {
 // receive deposit coin from user address to admin address
 const receiveDepositCoin = async(transaction_id:any) => {
     try {
-        const transaction = await prisma.deposite_transactions.findFirst({
-            where:{
-                AND:{
-                    id:Number(transaction_id),
-                    status:STATUS_ACTIVE,
-                    is_admin_receive:STATUS_PENDING
+        if(transaction_id) {
+            const transaction = await prisma.deposite_transactions.findFirst({
+                where:{
+                    AND:{
+                        id:Number(transaction_id),
+                        status:STATUS_ACTIVE,
+                        is_admin_receive:STATUS_PENDING
+                    }
                 }
+            });
+            if(transaction && transaction.network_id) {
+                const network_id = transaction.network_id;
+                const coin_id = transaction.coin_id;
+                const coinNetwork = await prisma.$queryRaw`
+                SELECT * FROM coin_networks
+                JOIN networks ON networks.id = coin_networks.network_id
+                where coin_networks.network_id = ${network_id} and coin_networks.coin_id = ${coin_id}`;
+    
+                console.log('coinNetwork', coinNetwork);
+                // if (coinNetwork && (coinNetwork?.type == )) {
+    
+                // } else {
+                //     return generateErrorResponse('Network not found');
+                // }
+                
+            } else {
+                return generateErrorResponse('Transaction or network not found');
             }
-        });
-        if(transaction && transaction.network_id) {
-            const network_id = transaction.network_id;
-            const coin_id = transaction.coin_id;
-            const coinNetwork = await prisma.$queryRaw`
-            SELECT * FROM coin_networks
-            JOIN networks ON networks.id = coin_networks.network_id
-            where coin_networks.network_id = ${network_id} and coin_networks.coin_id = ${coin_id}`;
-
-            console.log('coinNetwork', coinNetwork);
-            // if (coinNetwork && (coinNetwork?.type == )) {
-
-            // } else {
-            //     return generateErrorResponse('Network not found');
-            // }
-            
         } else {
-            return generateErrorResponse('Transaction or network not found');
+            return generateErrorResponse('Transaction id not found');
         }
+        
     } catch(err:any) {
         console.log(err);
         return generateErrorResponse(err.stack)
