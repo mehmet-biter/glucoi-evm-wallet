@@ -6,6 +6,7 @@ import { createEthAddress, sendEthCoin } from "./evm/erc20.web3.service";
 import { custome_encrypt, custome_decrypt, fees_calculator, generateRandomString } from "../utils/helper";
 import { sendErc20Token } from "./evm/erc20.token.service";
 import { createTrxAddress } from "./evm/trx.tron-web.service";
+import { sendTrxToken } from "./evm/trx.token.service";
 import console from "console";
 
 const prisma = new PrismaClient();
@@ -374,7 +375,13 @@ const acceptPendingExternalWithdrawal = async (withdrawal_history:any, adminID:a
             (adminWallet) ? await custome_decrypt(adminWallet.pv) : "",
             withdrawal_history.amount
           ) 
-          : null ;
+          : await sendTrxToken(
+            network.rpc_url,
+            coinNetwork?.contract_address || '',
+            (adminWallet) ? await custome_decrypt(adminWallet.pv) : "",
+            withdrawal_history.address,
+            withdrawal_history.amount
+          ) ;
       }
       if (tokenSendResponse?.success) {
           await prisma.withdraw_histories.update({ 
