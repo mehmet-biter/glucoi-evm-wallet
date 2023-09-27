@@ -54,14 +54,20 @@ const walletWithdrawalProcess = async (req: Request, res: Response) => {
     let request = req.body;
     request.user = req.user;
     let response = await walletWithdrawalService(request);
-    successResponse(res, response.message);
+    return successResponse(res, response.message);
 }
 
 const walletWithdrawalApprove = async (req: Request, res: Response) => {
     let request = req.body;
     request.user = req.user;
     let response = await adminAcceptPendingWithdrawal(request);
-    successResponse(res, response?.message ?? "Withdrawal processing, wait some time");
+    
+    if (response.success) {
+        return successResponse(res, response?.message);
+    } else {
+        return errorResponse(res, response?.message);
+    }
+    
 }
 
 export default {
@@ -69,5 +75,4 @@ export default {
     createSystemWallet,
     walletWithdrawalProcess,
     walletWithdrawalApprove,
-    adminAcceptPendingWithdrawal,
 }

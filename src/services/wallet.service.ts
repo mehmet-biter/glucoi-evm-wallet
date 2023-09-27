@@ -185,7 +185,7 @@ const walletWithdrawalService = async (request: any) => {
   // check admin approval
   if(coin.admin_approval == STATUS_ACTIVE)
       return generateSuccessResponse("Withdrawal process started successfully. Please wait for admin approval");
-  return generateSuccessResponse("Withdrawal process started successfully. We will notify you the result soon");
+  return generateSuccessResponse("Withdrawal request placed successfully.");
 }
 
 const executeWithdrawal = async (data:any) => {
@@ -239,7 +239,9 @@ const executeWithdrawal = async (data:any) => {
         }
   
       }
-  
+      const date = new Date();
+      makeData.created_at = date.toISOString();
+      makeData.updated_at = date.toISOString();
       makeData.amount         = data.amount;
       makeData.fees           = fees;
       makeData.receiverWallet = receiverWallet;
@@ -336,11 +338,14 @@ const acceptPendingExternalWithdrawal = async (withdrawal_history:any, adminID:a
   let currency = withdrawal_history.coin_type;
   let coin = await prisma.coins.findFirst({ where: { coin_type: currency } });
   let network:any = await prisma.networks.findFirst({ where: { id: Number(withdrawal_history.network_id) } });
-  let senderWallet = await prisma.wallet_address_histories.findFirst({ where: { wallet_id: Number(withdrawal_history.wallet_id), network_id: Number(network.id) } });
+  // let senderWallet = await prisma.wallet_address_histories.findFirst({ where: { wallet_id: Number(withdrawal_history.wallet_id), network_id: Number(network.id) } });
   let supportNetwork = await prisma.supported_networks.findFirst({ where: { slug: network?.slug } });
   let adminWallet = await prisma.admin_wallet_keys.findFirst({ where: { network_id: Number(network.id) } });
   let coinNetwork = await prisma.coin_networks.findFirst({ where: { network_id: Number(network.id), currency_id: Number(coin?.id) } });
-  console.log('senderWallet',senderWallet, { wallet_id: withdrawal_history.wallet_id });
+  if (!adminWallet) {
+    return generateErrorResponse("System wallet not found");
+  }
+  const coinDecimal = Number(coin?.decimal) > 0 ? Number(coin?.decimal) : 18;
   if (network  && (network.base_type == EVM_BASE_COIN || network.base_type == TRON_BASE_COIN)) {
       let tokenSendResponse = null;
       if(Number(coinNetwork?.type) == NATIVE_COIN){
@@ -348,7 +353,7 @@ const acceptPendingExternalWithdrawal = async (withdrawal_history:any, adminID:a
           ? await sendEthCoin(
             network.rpc_url,
             withdrawal_history.coin_type,
-            coin?.decimal ?? 18,
+            coinDecimal,
             Number(supportNetwork?.gas_limit), 
             adminWallet?.address ?? "",
             withdrawal_history.address,
@@ -378,7 +383,7 @@ const acceptPendingExternalWithdrawal = async (withdrawal_history:any, adminID:a
               transaction_hash: tokenSendResponse.data.transaction_id,
               used_gas: tokenSendResponse.data.used_gas,
               status: STATUS_ACTIVE,
-              updated_by: adminID,
+              updated_by: Number(adminID),
               automatic_withdrawal: adminID ? 'success' : ''
             } 
           });
@@ -486,34 +491,17 @@ const checkBaseType = (type: number): boolean => {
 }
 
 const adminAcceptPendingWithdrawal = async (request:any) => {
-  let withdrawHistory = await prisma.withdraw_histories.findFirst({ where: { id: request.id , status: STATUS_PENDING} });
+  
+  let withdrawHistory = await prisma.withdraw_histories.findFirst({ where: { id: Number(request.id) , status: STATUS_PENDING} });
   if(!withdrawHistory) return generateErrorResponse("Withdraw history not found");
+  // let wallet = await prisma.wallets.findFirst({ where: { id: withdrawHistory.wallet_id } });
+  // let user = await prisma.users.findFirst({ where: { id: withdrawHistory.user_id } });
+  // let network = await prisma.networks.findFirst({ where: { id: Number(withdrawHistory.network_id) } });
 
-  let wallet = await prisma.wallets.findFirst({ where: { id: withdrawHistory.wallet_id } });
-  let user = await prisma.users.findFirst({ where: { id: withdrawHistory.user_id } });
-  let network = await prisma.networks.findFirst({ where: { id: Number(withdrawHistory.network_id) } });
-
-  if(withdrawHistory.address_type == ADDRESS_TYPE_INTERNAL){
-    await prisma.deposite_transactions.updateMany({
-      where: { transaction_id: withdrawHistory.transaction_hash , address: withdrawHistory.address },
-      data:{ status: STATUS_ACTIVE, updated_by: request.user.user_details.id }
-    });
-
-    await prisma.wallets.update({
-      where:{ id: Number(withdrawHistory.receiver_wallet_id) },
-      data: { balance:{ increment: withdrawHistory.amount } }
-    });
-    
-    await prisma.withdraw_histories.update({
-      where:{ id: withdrawHistory.id },
-      data:{ status: STATUS_ACTIVE, updated_by: request.user.user_details.id }
-    });
-
-    return generateSuccessResponse("Pending withdrawal accepted successfully.");
-  } else if (withdrawHistory.address_type == ADDRESS_TYPE_EXTERNAL){
-      return await acceptPendingExternalWithdrawal(withdrawHistory,"");
+  if (withdrawHistory.address_type == ADDRESS_TYPE_EXTERNAL){
+      return await acceptPendingExternalWithdrawal(withdrawHistory,request.user.user_details.id);
   }
-  return generateSuccessResponse("Withdrawal requeste is invalid");
+  return generateSuccessResponse("Withdrawal request is invalid");
 }
 
 export {

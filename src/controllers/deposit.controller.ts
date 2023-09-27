@@ -5,6 +5,7 @@ import { errorResponse, successResponse } from "../utils/common";
 import { sendErc20Token } from "../services/evm/erc20.token.service";
 import { generateErrorResponse } from "../utils/commonObject";
 import prisma from "../client";
+import { STATUS_ACTIVE, STATUS_PENDING } from "../utils/coreConstant";
 
 
 const checkEvmDeposit = async(req: Request, res: Response) => {
@@ -35,8 +36,17 @@ const sendTokenTest = async(req: Request, res: Response) => {
 }
 
 // receive deposit coin from user address to admin address
-const receiveDepositCoin = async(transaction:any) => {
+const receiveDepositCoin = async(transaction_id:any) => {
     try {
+        const transaction = await prisma.deposite_transactions.findFirst({
+            where:{
+                AND:{
+                    id:Number(transaction_id),
+                    status:STATUS_ACTIVE,
+                    is_admin_receive:STATUS_PENDING
+                }
+            }
+        });
         if(transaction && transaction.network_id) {
             const network_id = transaction.network_id;
             const coin_id = transaction.coin_id;
@@ -44,7 +54,14 @@ const receiveDepositCoin = async(transaction:any) => {
             SELECT * FROM coin_networks
             JOIN networks ON networks.id = coin_networks.network_id
             where coin_networks.network_id = ${network_id} and coin_networks.coin_id = ${coin_id}`;
-            console.log(coinNetwork);
+
+            console.log('coinNetwork', coinNetwork);
+            // if (coinNetwork && (coinNetwork?.type == )) {
+
+            // } else {
+            //     return generateErrorResponse('Network not found');
+            // }
+            
         } else {
             return generateErrorResponse('Transaction or network not found');
         }

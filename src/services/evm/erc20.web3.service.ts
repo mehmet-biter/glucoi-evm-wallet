@@ -230,7 +230,17 @@ const executeEthTransaction = async(
   if (waitForConfirm) {
     await waitForTxConfirmed(txObj, connectWeb3, blockConfirmation);
   }
-  return generateSuccessResponse('Coin send successfully',txObj);
+  const data = {
+    block_hash:txObj.blockHash,
+    block_number:txObj.blockNumber,
+    contract_address:txObj.contractAddress,
+    from_address:txObj.from,
+    used_gas:txObj.gasUsed,
+    to:txObj.to,
+    transaction_id:txObj.transactionHash,
+    status:txObj.status,
+  }
+  return generateSuccessResponse('Coin send successfully',data);
 }
 
 
