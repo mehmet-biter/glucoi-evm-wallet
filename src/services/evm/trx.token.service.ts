@@ -51,7 +51,7 @@ const sendTrxToken = async (
     const tronWeb = await initializeTronWeb(rpcUrl);
 
     if(!tronWeb.isAddress(toAddress)) return generateErrorResponse("To address is invalid");
-    
+
     tronWeb.setPrivateKey(privateKey);
 
     const contract = await tronWeb.contract().at(contractAddress);
