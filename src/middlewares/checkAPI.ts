@@ -6,8 +6,6 @@ const checkAPI =
     try {
       const { evmapisecret } = req.headers;
       const secretKey = process.env.API_SECRET ?? "";
-      console.log('evmapisecret',evmapisecret);
-      console.log('secretKey',secretKey);
       if (evmapisecret !== secretKey) {
         return errorResponse(res, "API Access denied!");
       }
