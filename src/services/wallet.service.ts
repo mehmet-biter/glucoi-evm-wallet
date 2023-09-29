@@ -166,8 +166,9 @@ const walletWithdrawalService = async (request: any) => {
   if(!coin) return generateErrorResponse("Coin not find");
 
   // check validation
-  let validateResponse = await checkWithdrawalValidation(request, user, wallet, coin);
+  let validateResponse:any = await checkWithdrawalValidation(request, user, wallet, coin);
   if(!(validateResponse?.success)) return generateErrorResponse(validateResponse?.message ?? "Request validate failed");
+  let address_type = (validateResponse?.data?.receiverAddress) ? ADDRESS_TYPE_INTERNAL : ADDRESS_TYPE_EXTERNAL;
 
   let data = {
     'wallet_id' : wallet.id,
@@ -186,12 +187,13 @@ const walletWithdrawalService = async (request: any) => {
   // this code will be executed in queue, end here
 
   // check admin approval
-  if(checkAdminApproval(coin, request.amount))
+  if(checkAdminApproval(coin, request.amount, address_type))
       return generateSuccessResponse("Withdrawal process started successfully. Please wait for admin approval");
   return generateSuccessResponse("Withdrawal request placed successfully.");
 }
 
-const checkAdminApproval = (coin:any, amount:number):boolean=>{
+const checkAdminApproval = (coin:any, amount:number, address_type:number):boolean=>{console.log("address_type", address_type);
+  if(address_type == ADDRESS_TYPE_EXTERNAL) return true;
   if(coin.max_send_limit < amount) return true;
   return coin.admin_approval == STATUS_ACTIVE
 }
@@ -232,13 +234,13 @@ const executeWithdrawal = async (data:any) => {
       let makeData:any = {};
       let trx = generateRandomString(32);
       let fees = 0;
-      let receiverWallet = null;
+      let receiverWallet = validateResponse?.data?.receiverWallet;
       let receiverUser = null;
       let address_type = null;
       let receiver_Address = validateResponse?.data?.receiverAddress
       if(!receiver_Address){
   
-        receiverWallet= { address: data.address };
+        receiver_Address= { address: data.address };
         receiverUser = null;
         address_type = ADDRESS_TYPE_EXTERNAL;
         fees = validateResponse?.data?.fees;
@@ -246,25 +248,26 @@ const executeWithdrawal = async (data:any) => {
       }else{
         
         fees = 0;
-        receiverWallet = receiver_Address;
+        receiver_Address = receiver_Address;
         receiverUser = validateResponse?.data?.receiverUser;
         address_type = ADDRESS_TYPE_INTERNAL;
         if ( data.user.id == receiverUser.id ) {
             console.log('You can not send to your own wallet!');
             return;
         }
-        if ( data.wallet.coin_type != validateResponse?.data?.receiverWallet?.coin_type ) {
+        if ( data.wallet.coin_type != receiverWallet?.coin_type ) {
             console.log('You can not make withdrawal, because wallet coin type is mismatched. Your wallet coin type and withdrawal address coin type should be same.');
             return;
         }
   
-      }console.log("receiverWallet", receiverWallet);
+      }
       const date = new Date();
       makeData.created_at = date.toISOString();
       makeData.updated_at = date.toISOString();
       makeData.amount         = Number(data.amount);
       makeData.fees           = fees;
       makeData.receiverWallet = receiverWallet;
+      makeData.receiverAddress= receiver_Address;
       makeData.receiverUser   = receiverUser;
       makeData.address_type   = address_type;
       makeData.user           = data.user;
@@ -289,11 +292,10 @@ const executeWithdrawal = async (data:any) => {
   
       let storeData:any = make_withdrawal_data(makeData);
       let withdrawal_history = await prisma.withdraw_histories.create({ data : storeData });
-      console.log('send job withdrawal data', withdrawal_history);
 
       if (address_type == ADDRESS_TYPE_INTERNAL) {
         console.log('withdrawal process','internal withdrawal');
-        if (job_coin?.admin_approval == STATUS_ACTIVE) {
+        if (checkAdminApproval(job_coin, makeData.amount, address_type)) {
         } else{
             await prisma.withdraw_histories.update({ 
               where :{ 
@@ -308,8 +310,8 @@ const executeWithdrawal = async (data:any) => {
         if ( receiverWallet ) {
             let depositData:any = makeDepositData(makeData);
             let depositeTransaction = await prisma.deposite_transactions.create({ data : depositData });
-            console.log("depositeTransaction", depositeTransaction);
-            if (job_coin?.admin_approval == STATUS_ACTIVE) {
+
+            if (checkAdminApproval(job_coin, makeData.amount, address_type)) {
                 console.log('internal withdrawal process ', 'goes to admin approval');
                 return generateSuccessResponse('Internal withdrawal process goes to admin approval');
             } else {
@@ -317,7 +319,7 @@ const executeWithdrawal = async (data:any) => {
                   where :{ id : depositeTransaction.id },
                   data : { status : STATUS_ACTIVE }
                 });
-                await prisma.wallets.update({ 
+                let updateWallet = await prisma.wallets.update({ 
                   where :{ id : receiverWallet.id },
                   data : { balance : { increment : data.amount } }
                 });
@@ -327,7 +329,7 @@ const executeWithdrawal = async (data:any) => {
         }
       }else{
         console.log('withdrawal process','external withdrawal');
-        if (job_coin?.admin_approval == STATUS_ACTIVE) {
+        if (checkAdminApproval(job_coin, makeData.amount, address_type)) {
             console.log('external withdrawal process ', 'goes to admin approval');
             return generateSuccessResponse('External withdrawal process goes to admin approval');
         } else {
@@ -437,7 +439,7 @@ const make_withdrawal_data = (data:any):object => {
         id: data.wallet.id
       }
     },
-    address : data.receiverWallet?.address || '',
+    address : data.receiverAddress?.address || '',
     amount : Number(data.amount),
     address_type : data.address_type,
     fees : Number(data.fees),
@@ -447,14 +449,14 @@ const make_withdrawal_data = (data:any):object => {
     transaction_hash : data.trx,
     confirmations : '0',
     status : STATUS_PENDING,
-    receiver_wallet_id : (data.receiverWallet) ? '0' : data.receiverWallet?.id,
+    receiver_wallet_id : (data.receiverWallet) ? String(data.receiverWallet?.id) : '0' ,
     network_type : data.network_type ?? ""
   };
 }
 
 const makeDepositData = (data:any):object => {
     return {
-        address : data.receiverWallet?.address || '',
+        address : data.receiverAddress?.address || '',
         address_type : (data.address_type).toString(),
         from_address : data?.senderAddress?.address || '',
         amount : data.amount,
