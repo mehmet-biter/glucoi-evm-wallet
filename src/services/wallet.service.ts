@@ -186,9 +186,14 @@ const walletWithdrawalService = async (request: any) => {
   // this code will be executed in queue, end here
 
   // check admin approval
-  if(coin.admin_approval == STATUS_ACTIVE)
+  if(checkAdminApproval(coin, request.amount))
       return generateSuccessResponse("Withdrawal process started successfully. Please wait for admin approval");
   return generateSuccessResponse("Withdrawal request placed successfully.");
+}
+
+const checkAdminApproval = (coin:any, amount:number):boolean=>{
+  if(coin.max_send_limit < amount) return true;
+  return coin.admin_approval == STATUS_ACTIVE
 }
 
 const executeWithdrawal = async (data:any) => {
