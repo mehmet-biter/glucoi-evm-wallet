@@ -35,51 +35,18 @@ const checkCoinDeposit = async() => {
                             await Promise.all(promises);
                             }
                         await updateNetworkBlockNumber(networkData[x].network_id,setBlockNumber);    
+                    } else if (networkData[x].base_type == TRON_BASE_COIN) {
+
                     }
                 }
             }
         }
-        // const transactions = await getLatestTransaction('https://rpc.ankr.com/eth_goerli',9004290);
-        
-
         
         console.log('resultData.....', resultData)
-        console.log('checkCoinDeposit', 'executed');
         if (resultData && resultData.length > 0 ) {
             await depositUserWallet(resultData);
         }
         return [];
-        // const networkData:any = await prisma.$queryRaw`
-        // SELECT * 
-        // FROM networks 
-        // JOIN notified_blocks ON networks.id = notified_blocks.network_id
-        // JOIN supported_networks ON supported_networks.slug = networks.slug
-        // JOIN coin_networks ON networks.id = coin_networks.network_id
-        // WHERE coin_networks.status = 1`;
-        console.log('networks', networkData);
-        if (networkData.length > 0) {
-            networkData.map(async (network:any) => {
-                console.log('map data', network);
-                console.log(network.type,NATIVE_COIN)
-                console.log('network.type == NATIVE_COIN', network.type == NATIVE_COIN)
-                const transactions = await getLatestTransaction(network.rpc_url);
-                return transactions;
-                // if (network.base_type == EVM_BASE_COIN) {
-                //     if (network.type == NATIVE_COIN) {
-                //         await checkEvmNativeDeposit(network);
-                //     } else {
-                //         await checkEvmTokenDeposit(network);
-                //     }
-                // }
-                if (network.base_type == TRON_BASE_COIN) {
-                    if (network.type == NATIVE_COIN) {
-                        await checkTrxNativeDeposit(network);
-                    } else {
-                        await checkTrxTokenDeposit(network);
-                    }
-                }
-            })
-        }
     } catch (err:any) {
         console.log('checkDeposit',err);
         return generateErrorResponse(err.stack)

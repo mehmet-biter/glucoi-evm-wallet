@@ -55,9 +55,9 @@ const receiveDepositCoinProcess = async(request:any) => {
                     if (coinNetworkData.base_type == EVM_BASE_COIN) {
 
                     } else {
-                        return generateSuccessResponse('Transaction',coinNetworkData);
+                        return generateSuccessResponse('Transaction');
                     }
-                    return generateSuccessResponse('Transaction',coinNetworkData);
+                    return generateSuccessResponse('Transaction');
                 } else {
                     return generateErrorResponse('Network not found');
                 }
