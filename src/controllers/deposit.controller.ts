@@ -1,11 +1,12 @@
 import { checkCoinDeposit } from "../services/evm/deposit.service";
 import { sendEthCoin } from "../services/evm/erc20.web3.service";
 import { Request, Response } from "express";
-import { errorResponse, successResponse } from "../utils/common";
+import { errorResponse, processException, successResponse } from "../utils/common";
 import { sendErc20Token } from "../services/evm/erc20.token.service";
-import { generateErrorResponse } from "../utils/commonObject";
+import { generateErrorResponse, generateSuccessResponse } from "../utils/commonObject";
 import prisma from "../client";
 import { STATUS_ACTIVE, STATUS_PENDING } from "../utils/coreConstant";
+import { receiveDepositCoinProcess } from "../services/user.deposit.service";
 
 
 const checkEvmDeposit = async(req: Request, res: Response) => {
@@ -36,43 +37,17 @@ const sendTokenTest = async(req: Request, res: Response) => {
 }
 
 // receive deposit coin from user address to admin address
-const receiveDepositCoin = async(transaction_id:any) => {
+const receiveDepositCoin = async(req: Request, res:Response) => {
     try {
-        if(transaction_id) {
-            const transaction = await prisma.deposite_transactions.findFirst({
-                where:{
-                    AND:{
-                        id:Number(transaction_id),
-                        status:STATUS_ACTIVE,
-                        is_admin_receive:STATUS_PENDING
-                    }
-                }
-            });
-            if(transaction && transaction.network_id) {
-                const network_id = transaction.network_id;
-                const coin_id = transaction.coin_id;
-                const coinNetwork = await prisma.$queryRaw`
-                SELECT * FROM coin_networks
-                JOIN networks ON networks.id = coin_networks.network_id
-                where coin_networks.network_id = ${network_id} and coin_networks.coin_id = ${coin_id}`;
-    
-                console.log('coinNetwork', coinNetwork);
-                // if (coinNetwork && (coinNetwork?.type == )) {
-    
-                // } else {
-                //     return generateErrorResponse('Network not found');
-                // }
-                
-            } else {
-                return generateErrorResponse('Transaction or network not found');
-            }
+        const response = await receiveDepositCoinProcess(req.body);   
+        if(response.success) {
+            return successResponse(res,response.message,response.data);
         } else {
-            return generateErrorResponse('Transaction id not found');
+            return errorResponse(res, response.message,response.data)
         }
-        
     } catch(err:any) {
         console.log(err);
-        return generateErrorResponse(err.stack)
+        return processException(res, err);
     }
 }
 export default {

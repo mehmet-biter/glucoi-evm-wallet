@@ -19,6 +19,12 @@ import { setApp } from "./utils/helper";
 
 const app = express();
 dotenv.config();
+// app.set('json replacer', (key:any, value:any) => {
+//   if (typeof value === 'bigint') {
+//     return value.toString();
+//   }
+//   return value;
+// });
 
 app.use(bodyParser.json());
 
