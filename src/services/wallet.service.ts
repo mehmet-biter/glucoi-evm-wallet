@@ -82,16 +82,24 @@ const prisma = new PrismaClient();
   if(userWallet) return generateSuccessResponse("Wallet address found successfully", userWallet.address);
 
   if (getNetwork) {
-    let wallet = generateErrorResponse("Invalid base type");
-    if (getNetwork.base_type == EVM_BASE_COIN) {
-        wallet = await createEthAddress(getNetwork.rpc_url ?? '/');
-          if(wallet && wallet?.success) {
-            return generateSuccessResponse("Wallet created successfully",wallet.data);
-          } else {
-            return generateErrorResponse("Wallet not generated");
-          }
+    // check if rpc url has http or https
+    if(!(getNetwork.rpc_url?.match(/^http(s)?:\/\/.+/g))) 
+      return generateErrorResponse("Invalid RPC url provided");
+
+    let wallet = (
+      (getNetwork.base_type == EVM_BASE_COIN) 
+      ? await createEthAddress(getNetwork.rpc_url ?? '/')
+      : (
+          (getNetwork.base_type == TRON_BASE_COIN)
+          ? await createTrxAddress(getNetwork.rpc_url ?? '/')
+          : null
+        )
+    );
+
+    if(wallet && wallet?.success) {
+      return generateSuccessResponse("Wallet created successfully",wallet.data);
     } else {
-      wallet = generateErrorResponse("Invalid base type");
+      return generateErrorResponse("Wallet not generated");
     }
   }
   return generateErrorResponse("Network not found"); 
