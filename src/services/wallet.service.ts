@@ -5,7 +5,7 @@ import { generateErrorResponse, generateSuccessResponse } from "../utils/commonO
 import { createEthAddress, sendEthCoin } from "./evm/erc20.web3.service";
 import { custome_encrypt, custome_decrypt, fees_calculator, generateRandomString } from "../utils/helper";
 import { sendErc20Token } from "./evm/erc20.token.service";
-import { createTrxAddress } from "./evm/trx.tron-web.service";
+import { createTrxAddress, sendTrxCoin } from "./evm/trx.tron-web.service";
 import { sendTrxToken } from "./evm/trx.token.service";
 import console from "console";
 
@@ -14,7 +14,7 @@ const prisma = new PrismaClient();
  const createAddress = async (user:any,coinType: string, network: number) => {
   const User = user.user_details;
   const getNetwork = await getNetworkData(network);
-  console.log("getNetwork", getNetwork);
+
   const userWallet = await getWalletData(Number(User.id), coinType);
   if(!userWallet) return generateErrorResponse("Wallet not found");
 
@@ -191,7 +191,8 @@ const walletWithdrawalService = async (request: any) => {
   };
 
   // this code will be executed in queue, start here
-  await executeWithdrawal(data);
+  let executeWithdrawalResponse = await executeWithdrawal(data);
+  console.log("executeWithdrawalResponse", executeWithdrawalResponse);
   // this code will be executed in queue, end here
 
   // check admin approval
@@ -200,7 +201,7 @@ const walletWithdrawalService = async (request: any) => {
   return generateSuccessResponse("Withdrawal request placed successfully.");
 }
 
-const checkAdminApproval = (coin:any, amount:number, address_type:number):boolean=>{console.log("address_type", address_type);
+const checkAdminApproval = (coin:any, amount:number, address_type:number):boolean=>{
   if(address_type == ADDRESS_TYPE_EXTERNAL) return true;
   if(coin.max_send_limit < amount) return true;
   return coin.admin_approval == STATUS_ACTIVE
@@ -391,7 +392,12 @@ const acceptPendingExternalWithdrawal = async (withdrawal_history:any, adminID:a
             withdrawal_history.amount,
             (adminWallet) ? await custome_decrypt(adminWallet.pv) : "",
           ) 
-          : null ;
+          : await sendTrxCoin(
+            network.rpc_url,
+            withdrawal_history.address,
+            withdrawal_history.amount,
+            (adminWallet) ? await custome_decrypt(adminWallet.pv) : ""
+          ) ;
       }else{
         tokenSendResponse = (network.base_type == EVM_BASE_COIN) 
           ? await sendErc20Token(
