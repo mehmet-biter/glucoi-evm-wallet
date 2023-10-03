@@ -5,6 +5,8 @@ import { generateErrorResponse, generateSuccessResponse } from "../utils/commonO
 import { createEthAddress, sendEthCoin } from "./evm/erc20.web3.service";
 import { custome_encrypt, custome_decrypt, fees_calculator, generateRandomString } from "../utils/helper";
 import { sendErc20Token } from "./evm/erc20.token.service";
+import { createTrxAddress } from "./evm/trx.tron-web.service";
+import { sendTrxToken } from "./evm/trx.token.service";
 import console from "console";
 
 const prisma = new PrismaClient();
@@ -12,7 +14,7 @@ const prisma = new PrismaClient();
  const createAddress = async (user:any,coinType: string, network: number) => {
   const User = user.user_details;
   const getNetwork = await getNetworkData(network);
-
+  console.log("getNetwork", getNetwork);
   const userWallet = await getWalletData(Number(User.id), coinType);
   if(!userWallet) return generateErrorResponse("Wallet not found");
 
@@ -45,28 +47,31 @@ const prisma = new PrismaClient();
             address: walletAddresses[0].address,
             wallet_key: walletAddresses[0].wallet_key,
           }
-      });
+        });
+      }
     }
-  }
     
     if(walletAddress && walletAddress.address) {
       return generateSuccessResponse("Wallet address found successfully", walletAddress.address);
     }
 
   if (getNetwork) {
-    let wallet = generateErrorResponse("Invalid base type");
+    let wallet = null;
+
     if (getNetwork.base_type == EVM_BASE_COIN) {
         wallet = await createEthAddress(getNetwork.rpc_url ?? '/');
-          if(await createWalletAddressHistorie(Number(User.id), coinType, Number(getNetwork.id), wallet, userWallet)) {
-            return generateSuccessResponse("Wallet created successfully",wallet.data.address);
-          } else {
-            return generateErrorResponse("Wallet not generated");
-          }
-    } else {
-      wallet = generateErrorResponse("Invalid base type");
+    } else if(getNetwork.base_type == TRON_BASE_COIN) {
+        wallet = await createTrxAddress(getNetwork.rpc_url ?? '/'); 
+    } 
+
+    if(wallet && wallet.success){
+        let walletAddressHistory = await createWalletAddressHistorie(Number(User.id), coinType, Number(getNetwork.id), wallet, userWallet);
+        if(walletAddressHistory) return generateSuccessResponse("Wallet created successfully",wallet.data.address);
+        return generateErrorResponse("Wallet not generated");
     }
+    return generateErrorResponse("Invalid base type");
   }
-  return generateErrorResponse("Network not found"); 
+  return generateErrorResponse("Network not found");
 };
 
  const createSystemAddress = async (user:any, network: number) => {
@@ -161,15 +166,18 @@ const walletWithdrawalService = async (request: any) => {
   if(!coin) return generateErrorResponse("Coin not find");
 
   // check validation
-  let validateResponse = await checkWithdrawalValidation(request, user, wallet, coin);
+  let validateResponse:any = await checkWithdrawalValidation(request, user, wallet, coin);
   if(!(validateResponse?.success)) return generateErrorResponse(validateResponse?.message ?? "Request validate failed");
+  let address_type = (validateResponse?.data?.receiverAddress) ? ADDRESS_TYPE_INTERNAL : ADDRESS_TYPE_EXTERNAL;
 
   let data = {
     'wallet_id' : wallet.id,
+    'wallet' : wallet,
     'amount' : request.amount,
     'address' : request.address,
     'note' : request.note ?? '',
     'user' : user,
+    'coin' : coin,
     'network_id' : request.network_id,
     'base_type' : request.base_type,
   };
@@ -179,9 +187,15 @@ const walletWithdrawalService = async (request: any) => {
   // this code will be executed in queue, end here
 
   // check admin approval
-  if(coin.admin_approval == STATUS_ACTIVE)
+  if(checkAdminApproval(coin, request.amount, address_type))
       return generateSuccessResponse("Withdrawal process started successfully. Please wait for admin approval");
   return generateSuccessResponse("Withdrawal request placed successfully.");
+}
+
+const checkAdminApproval = (coin:any, amount:number, address_type:number):boolean=>{console.log("address_type", address_type);
+  if(address_type == ADDRESS_TYPE_EXTERNAL) return true;
+  if(coin.max_send_limit < amount) return true;
+  return coin.admin_approval == STATUS_ACTIVE
 }
 
 const executeWithdrawal = async (data:any) => {
@@ -199,6 +213,18 @@ const executeWithdrawal = async (data:any) => {
           id: job_wallet.coin_id,
         }
       });
+
+      const senderAddress = await prisma.wallet_address_histories.findFirst({
+        where: {
+          AND:{
+            user_id    : Number(data.user.id),
+            network_id : data.network_id,
+            coin_type  : data.coin.coin_type
+          }
+        }
+      });
+
+      if(!senderAddress) return generateErrorResponse("Invalid sender address");
   
       let validateResponse = await checkWithdrawalValidation(data, data.user, job_wallet, job_coin);
       if(!(validateResponse?.success)) {
@@ -208,28 +234,28 @@ const executeWithdrawal = async (data:any) => {
       let makeData:any = {};
       let trx = generateRandomString(32);
       let fees = 0;
-      let receiverWallet = null;
+      let receiverWallet = validateResponse?.data?.receiverWallet;
       let receiverUser = null;
       let address_type = null;
       let receiver_Address = validateResponse?.data?.receiverAddress
       if(!receiver_Address){
   
-        receiverWallet= { address: data.address };
+        receiver_Address= { address: data.address };
         receiverUser = null;
         address_type = ADDRESS_TYPE_EXTERNAL;
         fees = validateResponse?.data?.fees;
   
       }else{
-  
+        
         fees = 0;
-        receiverWallet = validateResponse?.data?.receiverWallet; console.log('receiverWallet', receiverWallet);
-        receiverUser = validateResponse?.data?.wallet.user;
+        receiver_Address = receiver_Address;
+        receiverUser = validateResponse?.data?.receiverUser;
         address_type = ADDRESS_TYPE_INTERNAL;
         if ( data.user.id == receiverUser.id ) {
             console.log('You can not send to your own wallet!');
             return;
         }
-        if ( data.wallet.coin_type != validateResponse?.data?.wallet.coin_type ) {
+        if ( data.wallet.coin_type != receiverWallet?.coin_type ) {
             console.log('You can not make withdrawal, because wallet coin type is mismatched. Your wallet coin type and withdrawal address coin type should be same.');
             return;
         }
@@ -238,9 +264,10 @@ const executeWithdrawal = async (data:any) => {
       const date = new Date();
       makeData.created_at = date.toISOString();
       makeData.updated_at = date.toISOString();
-      makeData.amount         = data.amount;
+      makeData.amount         = Number(data.amount);
       makeData.fees           = fees;
       makeData.receiverWallet = receiverWallet;
+      makeData.receiverAddress= receiver_Address;
       makeData.receiverUser   = receiverUser;
       makeData.address_type   = address_type;
       makeData.user           = data.user;
@@ -248,6 +275,7 @@ const executeWithdrawal = async (data:any) => {
       makeData.trx            = trx;
       makeData.base_type      = data.base_type;
       makeData.network_id     = data.network_id;
+      makeData.senderAddress     = senderAddress;
 
       const senderWalletUpdate = await prisma.wallets.update({
         where: { id: job_wallet.id },
@@ -264,11 +292,10 @@ const executeWithdrawal = async (data:any) => {
   
       let storeData:any = make_withdrawal_data(makeData);
       let withdrawal_history = await prisma.withdraw_histories.create({ data : storeData });
-      console.log('send job withdrawal data', withdrawal_history);
 
       if (address_type == ADDRESS_TYPE_INTERNAL) {
         console.log('withdrawal process','internal withdrawal');
-        if (job_coin?.admin_approval == STATUS_ACTIVE) {
+        if (checkAdminApproval(job_coin, makeData.amount, address_type)) {
         } else{
             await prisma.withdraw_histories.update({ 
               where :{ 
@@ -283,8 +310,8 @@ const executeWithdrawal = async (data:any) => {
         if ( receiverWallet ) {
             let depositData:any = makeDepositData(makeData);
             let depositeTransaction = await prisma.deposite_transactions.create({ data : depositData });
-            console.log(depositeTransaction);
-            if (job_coin?.admin_approval == STATUS_ACTIVE) {
+
+            if (checkAdminApproval(job_coin, makeData.amount, address_type)) {
                 console.log('internal withdrawal process ', 'goes to admin approval');
                 return generateSuccessResponse('Internal withdrawal process goes to admin approval');
             } else {
@@ -292,7 +319,7 @@ const executeWithdrawal = async (data:any) => {
                   where :{ id : depositeTransaction.id },
                   data : { status : STATUS_ACTIVE }
                 });
-                await prisma.wallets.update({ 
+                let updateWallet = await prisma.wallets.update({ 
                   where :{ id : receiverWallet.id },
                   data : { balance : { increment : data.amount } }
                 });
@@ -302,7 +329,7 @@ const executeWithdrawal = async (data:any) => {
         }
       }else{
         console.log('withdrawal process','external withdrawal');
-        if (job_coin?.admin_approval == STATUS_ACTIVE) {
+        if (checkAdminApproval(job_coin, makeData.amount, address_type)) {
             console.log('external withdrawal process ', 'goes to admin approval');
             return generateSuccessResponse('External withdrawal process goes to admin approval');
         } else {
@@ -370,7 +397,13 @@ const acceptPendingExternalWithdrawal = async (withdrawal_history:any, adminID:a
             (adminWallet) ? await custome_decrypt(adminWallet.pv) : "",
             withdrawal_history.amount
           ) 
-          : null ;
+          : await sendTrxToken(
+            network.rpc_url,
+            coinNetwork?.contract_address || '',
+            (adminWallet) ? await custome_decrypt(adminWallet.pv) : "",
+            withdrawal_history.address,
+            withdrawal_history.amount
+          ) ;
       }
       if (tokenSendResponse?.success) {
           await prisma.withdraw_histories.update({ 
@@ -406,7 +439,7 @@ const make_withdrawal_data = (data:any):object => {
         id: data.wallet.id
       }
     },
-    address : data.receiverWallet?.address || '',
+    address : data.receiverAddress?.address || '',
     amount : Number(data.amount),
     address_type : data.address_type,
     fees : Number(data.fees),
@@ -416,15 +449,16 @@ const make_withdrawal_data = (data:any):object => {
     transaction_hash : data.trx,
     confirmations : '0',
     status : STATUS_PENDING,
-    receiver_wallet_id : (data.receiverWallet) ? '0' : data.receiverWallet?.id,
+    receiver_wallet_id : (data.receiverWallet) ? String(data.receiverWallet?.id) : '0' ,
     network_type : data.network_type ?? ""
   };
 }
 
 const makeDepositData = (data:any):object => {
     return {
-        address : data.receiverWallet?.address,
-        address_type : data.address_type,
+        address : data.receiverAddress?.address || '',
+        address_type : (data.address_type).toString(),
+        from_address : data?.senderAddress?.address || '',
         amount : data.amount,
         fees : data.fees,
         coin_type : data.wallet.coin_type,
@@ -468,9 +502,16 @@ const checkWithdrawalValidation = async (request: any, user: any, wallet: any, c
           // check coin type
           if(userWallet.coin_type != wallet.coin_type)
             return generateErrorResponse("Both wallet coin type should be same");
+
+          let receiverUser = await prisma.users.findFirst({
+            where: {
+              id: userWallet.user_id,
+            }
+          });
+          if(receiverUser) responseData.receiverUser = receiverUser;
       }
   }
-  console.log(totalAmount);
+
   // check coin status
   if(coin.status != STATUS_ACTIVE) return generateErrorResponse(coin.coin_type + " coin is inactive right now.");
   // check coin withdrawal status

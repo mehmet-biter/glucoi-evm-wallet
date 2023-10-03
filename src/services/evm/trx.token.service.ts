@@ -14,7 +14,7 @@ const initializeTronWeb = async (rpcUrl: string) => {
   const tronWeb = new TronWeb({
     fullHost: rpcUrl,
     headers: {
-      "TRON-PRO-API-KEY": process.env.TRONGRID_API_KEY,
+      "TRON-PRO-API-KEY": process.env.TRONGRID_API_KEY || "",
     },
   });
   return tronWeb;
@@ -49,6 +49,8 @@ const sendTrxToken = async (
 ) => {
   try {
     const tronWeb = await initializeTronWeb(rpcUrl);
+
+    if(!tronWeb.isAddress(toAddress)) return generateErrorResponse("To address is invalid");
 
     tronWeb.setPrivateKey(privateKey);
 
@@ -87,6 +89,7 @@ const sendTrxToken = async (
       return generateErrorResponse("Transaction failed");
     }
   } catch (err) {
+    console.log(err);
     return generateErrorResponse("Something went wrong");
   }
 };
