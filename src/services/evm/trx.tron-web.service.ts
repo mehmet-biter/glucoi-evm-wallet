@@ -6,6 +6,7 @@ import {
   generateSuccessResponse,
 } from "../../utils/commonObject";
 import { powerOfTen } from "../../utils/helper";
+import { error } from "console";
 
 const initializeTronWeb = async (rpcUrl: string) => {
   const tronWeb = new TronWeb({
@@ -189,6 +190,43 @@ const getTrxTransactionBlock = async (
   }
 };
 
+const checkTrxDepositByBlockNumber = async(rpcUrl:string,blockNumber?:number) => {
+  const tronWeb = await initializeTronWeb(rpcUrl);
+  let blockNum:any = blockNumber;
+  if(!blockNumber || blockNumber == 0) {
+    blockNum = await getTrxCurrentBlockNumber(tronWeb);
+  } 
+  console.log('blockNum', blockNum)
+  return await getTrxTransactionByBlockNumber(TronWeb,blockNum);
+}
+
+const getTrxTransactionByBlockNumber = async(tronWeb:any,blockNumber:number) => {
+  try {
+    console.log('blockNumber => ', blockNumber)
+    await tronWeb.trx.getTransactionsFromThis(blockNumber, 100, 0).then((block:any) => {
+      if (block) {
+        console.log('Block Data:');
+        console.log(JSON.stringify(block, null, 2));
+      } else {
+        console.log(`Block ${blockNumber} not found.`);
+      }
+    }).catch((error:any) => {
+      console.log('Error:', error.message); // Log the error message
+    });
+  } catch(err) {
+    console.log('getBlockByNum ex =>' , error)
+  }
+  
+}
+
+const getTrxCurrentBlockNumber = async(tronWeb:any) => {
+  let latestBlockNumber = 0;
+  const block = await tronWeb.trx.getCurrentBlock();
+  if (block && block.block_header) {
+     latestBlockNumber = block.block_header.raw_data.number; 
+  }
+  return latestBlockNumber;
+}
 export {
   initializeTronWeb,
   amountConvertToSun,
@@ -199,4 +237,5 @@ export {
   getTrxAccount,
   checkTrxAddress,
   getTrxTransactionBlock,
+  checkTrxDepositByBlockNumber
 };

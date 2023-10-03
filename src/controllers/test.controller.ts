@@ -1,4 +1,4 @@
-import { checkCoinDeposit } from "../services/evm/deposit.service";
+import { checkCoinDeposit, checkTrxNativeDeposit } from "../services/evm/deposit.service";
 import { sendEthCoin } from "../services/evm/erc20.web3.service";
 import { Request, Response } from "express";
 import { errorResponse, successResponse } from "../utils/common";
@@ -31,7 +31,16 @@ const checkDeposit = async(req: Request, res: Response) => {
     return successResponse(res,'executed',response);
 }
 
+const checkTrxDeposit = async (req: Request, res: Response) => {
+    const rpcUrl = 'https://nile.trongrid.io';
+    const blockNumber = 0;
+    const response = await checkTrxNativeDeposit(rpcUrl,blockNumber);
+    console.log('response', response);
+    return successResponse(res,'executed',response);
+}
+
 export default {
     sendEth,
-    checkDeposit
+    checkDeposit,
+    checkTrxDeposit
 }
