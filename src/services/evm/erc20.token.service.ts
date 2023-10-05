@@ -202,7 +202,7 @@ const sendErc20Token = async(
         return response;
       }  
       let nonce = await web3.eth.getTransactionCount(fromAddress,'latest');
-      
+
       const tx:TransactionConfig = {
         from: fromAddress,
         nonce: nonce,
@@ -225,7 +225,7 @@ const sendErc20Token = async(
       return generateErrorResponse("Invalid address");
     }
   } catch(err:any) {
-    console.log(err.message);
+    console.log(err);
     return generateErrorResponse(err.stack)
   }
 }

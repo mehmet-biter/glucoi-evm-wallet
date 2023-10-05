@@ -73,7 +73,7 @@ const estimateEthFee = async (
     const gasPrice = await connectWeb3.eth.getGasPrice();
 
     let message = '';
-
+ 
     const tx: TransactionConfig = {
       from: Web3.utils.toChecksumAddress(fromAddress),
       to: Web3.utils.toChecksumAddress(toAddress),
@@ -175,7 +175,7 @@ const sendEthCoin = async (
       return generateErrorResponse(response.message);
     }  
 
-    let nonce = (await connectWeb3.eth.getTransactionCount(fromAddress,'latest')) + 10;
+    let nonce = (await connectWeb3.eth.getTransactionCount(fromAddress,'latest'));
     tx.nonce = nonce;
     const txObj = await executeEthTransaction(
       tx,
@@ -185,9 +185,9 @@ const sendEthCoin = async (
     );
     return txObj; 
 
-  } catch(err) {
+  } catch(err:any) {
     console.log(err); 
-    return generateErrorResponse("Something went wrong")
+    return generateErrorResponse(err?.message ?? "Something went wrong")
   }
 }
 
@@ -403,22 +403,51 @@ const estimateGasFee = async (
   coinDecimal:any, 
   gasLimit:any, 
   toAddress:string,
-  amount:number
+  amount:number,
+  contract:string|null
   ) => {
   try {
     const connectWeb3 = await initializeWeb3(rpcUrl);
     const gasPrice = await connectWeb3.eth.getGasPrice();
 
-    const tx: TransactionConfig = {
+    let tx: TransactionConfig = {
       to: Web3.utils.toChecksumAddress(toAddress),
       value: customToWei(amount,coinDecimal),
       gasPrice: gasPrice.toString(),
-      gas: gasLimit.toString()
+      // gas: gasLimit.toString()
     };
+
+    if(contract){
+      //tx.to = contract;
+      tx.data = connectWeb3.eth.abi.encodeFunctionCall({
+        "inputs": [
+          {
+            "internalType": "address",
+            "name": "to",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "amount",
+            "type": "uint256"
+          }
+        ],
+        "name": "transfer",
+        "outputs": [
+          {
+            "internalType": "bool",
+            "name": "",
+            "type": "bool"
+          }
+        ],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      }, [toAddress, customToWei(amount,coinDecimal)]);
+    }
     
     const gas = await connectWeb3.eth.estimateGas(tx);
-    const estimatedFee = customFromWei(multiplyNumbers(gas, Number(gasPrice)),coinDecimal);    
- 
+    const estimatedFee = customFromWei(multiplyNumbers(gas, Number(gasPrice)),coinDecimal);
+
     return generateSuccessResponse('success', {
       fee:estimatedFee //customToWei(Number(estimatedFee),coinDecimal)
     })
@@ -453,6 +482,11 @@ const waitForTxConfirmedForGas = async(
   }
 }
 
+const getGasPrice = async (rpcUrl:string)=>{
+  let connectWeb3 = await initializeWeb3(rpcUrl);
+  return await connectWeb3.eth.getGasPrice();
+}
+
 export {
   createEthAddress,
   getEthBalance,
@@ -469,5 +503,6 @@ export {
   getLatestBlockNumber,
   getLatestTransaction,
   estimateGasFee,
-  waitForTxConfirmedForGas
+  waitForTxConfirmedForGas,
+  getGasPrice
 };

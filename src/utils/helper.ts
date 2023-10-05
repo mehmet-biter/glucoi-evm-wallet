@@ -22,6 +22,7 @@ export const customToWei = (amount:number,decimal:number) =>
 {
   const isDecimal = !Number.isInteger(amount);
   if (isDecimal) {
+    //amount = Number(amount.toFixed(decimal));
     const tokenDecimals = new BigNumber(10).pow(decimal);
     const tokenToSend = new BigNumber(amount).times(tokenDecimals);
 

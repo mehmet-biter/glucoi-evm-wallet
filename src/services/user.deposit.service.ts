@@ -1,10 +1,11 @@
 import { PrismaClient } from "@prisma/client";
 import { EVM_BASE_COIN, STATUS_ACTIVE, STATUS_PENDING } from "../utils/coreConstant";
 import { generateErrorResponse, generateSuccessResponse } from "../utils/commonObject";
-import { getEthBalance, estimateGasFee, sendEthCoin, waitForTxConfirmedForGas } from "./evm/erc20.web3.service";
-import { custome_decrypt, sleep } from "../utils/helper";
+import { getEthBalance, estimateGasFee, sendEthCoin, waitForTxConfirmedForGas, getGasPrice } from "./evm/erc20.web3.service";
+import { custome_decrypt, sleep, customFromWei, multiplyNumbers } from "../utils/helper";
 import { NATIVE_COIN } from "../utils/coreConstant";
-import { sendErc20Token } from "./evm/erc20.token.service"
+import { sendErc20Token } from "./evm/erc20.token.service";
+import Web3 from "web3";
 
 const prisma = new PrismaClient();
 
@@ -36,7 +37,6 @@ const receiveDepositCoinProcess = async(request:any) => {
 
                     const supported_network:any = await prisma.supported_networks.findFirst({ where:{ AND :{ slug:coinNetwork[0].slug }} });
                     if(!supported_network) return generateErrorResponse('Supported network not found');
-                    console.log(supported_network);
 
 
                     coinNetworkData = coinNetwork[0]; // Extract the first item from the array
@@ -47,12 +47,12 @@ const receiveDepositCoinProcess = async(request:any) => {
                     coinNetworkData.coin_type       = coin.coin_type;
                     coinNetworkData.native_coin_type= supported_network.native_currency;
                     coinNetworkData.decimal         = coin.decimal;
-                    coinNetworkData.gas_limit       = supported_network.gas_limit;
+                    coinNetworkData.gas_limit       = supported_network.gas_limit ?? 0;
                     coinNetworkData.from_address    = transaction.from_address;
                     coinNetworkData.amount          = transaction.amount;
                     coinNetworkData.blockConfirm    = coinNetwork[0]?.block_confirmation ?? 1;
                     coinNetworkData.is_native       = (coinNetwork[0]?.currency_type == NATIVE_COIN) ? true : false;
-                    coinNetworkData.contractAddress = coinNetwork[0]?.contract_address;
+                    coinNetworkData.contractAddress = coinNetwork[0]?.contract_address ?? null;
                                    
                     const systemWallet = await prisma.admin_wallet_keys.findFirst({
                         where:{
@@ -77,8 +77,8 @@ const receiveDepositCoinProcess = async(request:any) => {
                     if(!userWallet) return generateErrorResponse('Deposited wallet not found');
                     if(!userWalletAddress) return generateErrorResponse('Deposited wallet address not found');
 
-                    console.log('systemWallet', systemWallet);
-                    console.log('coinNetworkData', coinNetworkData);
+                    // console.log('systemWallet', systemWallet);
+                    // console.log('coinNetworkData', coinNetworkData);
                     if (coinNetworkData.base_type == EVM_BASE_COIN) {
                         return await takeCoinFromEvmNetwork(coinNetworkData, systemWallet, userWalletAddress);
                     }
@@ -91,7 +91,7 @@ const receiveDepositCoinProcess = async(request:any) => {
         return generateErrorResponse('Transaction id not found');
     } catch (err:any) {
         console.log('receiveDepositCoinProcess',err);
-        return generateErrorResponse(err.stack)
+        return generateErrorResponse(err.message ?? "Something went wrong");
     }
 }
 
@@ -129,17 +129,38 @@ const takeCoinFromEvmNetwork = async (network:any, systemWallet:any, userWallet:
     userBalance = Number(userWalletBalance?.data);
 
     // Check Estimate Gas
-    let ethEstimateGas = await estimateGasFee(network.rpc_url, network.decimal, network.gas_limit, userWallet.address, network.amount);
-    if(!(ethEstimateGas.hasOwnProperty("success") && ethEstimateGas.success))
-            return generateErrorResponse(ethEstimateGas?.message ?? "Estimate gas check failed");
-    gas = Number(ethEstimateGas?.data?.fee), sendAmount = gas;
+    if(network.gas_limit > 0){console.log(network.gas_limit);
+        // let gasToWei = (0.000000000000000001 * network.gas_limit).toString();
+        const gas_price = await getGasPrice(network.rpc_url);
+        let gasToWei = customFromWei(multiplyNumbers(network.gas_limit, Number(gas_price)),network.decimal);
+        gas = parseFloat(gasToWei).toFixed(18);
+        gas = Number(gas);
+        sendAmount = gas;
+    }else{
+        let ethEstimateGas = await estimateGasFee(network.rpc_url, network.decimal, network.gas_limit, userWallet.address, network.amount, network.contractAddress);
+        if(!(ethEstimateGas.hasOwnProperty("success") && ethEstimateGas.success))
+                return generateErrorResponse(ethEstimateGas?.message ?? "Estimate gas check failed");
+        gas = Number(ethEstimateGas?.data?.fee) * 2; 
+        sendAmount = gas; console.log(gas);
+    }
+
     
     // user wallet balance check and gas set
-    if((Number(userWalletBalance?.data) > 0)){ 
-        if(userBalance > gas) needGas = false;
-        else sendAmount = gas - userBalance;
+    if((userBalance > 0)){
+        console.log("User Balance Has:", userBalance.toFixed(network.decimal));
+        console.log("Estimate Gas Fee:", gas.toFixed(network.decimal));
+
+        if((userBalance >= gas)){
+            console.log("User Balance > Gas", true);
+            console.log("Gas no need to send");
+            needGas = false;
+        }else{
+            console.log("User Balance > Gas", false);
+            sendAmount = gas - userBalance;
+            console.log("Gas need to send:", sendAmount.toFixed(network.decimal));
+        }
     }
-         
+
     if(needGas){
         // send gas to user
         let sendNativeCoin = await sendEthCoin(
@@ -154,12 +175,13 @@ const takeCoinFromEvmNetwork = async (network:any, systemWallet:any, userWallet:
         );
         if(!(sendNativeCoin.hasOwnProperty("success") && sendNativeCoin.success))
             return generateErrorResponse(sendNativeCoin?.message ?? "Gas sending failed");
-console.log("sendNativeCoin", sendNativeCoin);
+
         // wait for transaction to confirm by blockchain
         let waitForTransaction = await waitForTxConfirmedForGas(network.rpc_url, sendNativeCoin.data, network.blockConfirm);
         if(!(waitForTransaction.hasOwnProperty("success") && waitForTransaction.success))
             return generateErrorResponse(waitForTransaction?.message ?? "Transaction Failed");
-            console.log("waitForTransaction", waitForTransaction);
+
+        //console.log("waitForTransaction", waitForTransaction);
         // return generateSuccessResponse("gas send confirmed",sendNativeCoin.data);
     }
 
@@ -173,7 +195,7 @@ console.log("sendNativeCoin", sendNativeCoin);
             userWallet.address,  
             systemWallet.address, 
             network.amount, 
-            await custome_decrypt(systemWallet.pv)
+            await custome_decrypt(userWallet.wallet_key)
         )
         : await sendErc20Token(
             network.rpc_url, 
@@ -183,12 +205,13 @@ console.log("sendNativeCoin", sendNativeCoin);
             18, // native coin decimal
             network.gas_limit,
             userWallet.address,
-            systemWallet.address, 
-            await custome_decrypt(systemWallet.pv),
+            systemWallet.address,
+            await custome_decrypt(userWallet.wallet_key),
             network.amount,
         ) ;
-
-    return generateSuccessResponse("ddddd", sendToWystemWallet);
+    if(!(sendToWystemWallet.hasOwnProperty("success") && sendToWystemWallet.success))
+        return generateErrorResponse(sendToWystemWallet?.message ?? "Coins received Failed");
+    return generateSuccessResponse("Coins received successfully", sendToWystemWallet?.data);
 }
 
 export {
