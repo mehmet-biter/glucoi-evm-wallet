@@ -1,8 +1,8 @@
 import { PrismaClient } from "@prisma/client";
 import { EVM_BASE_COIN, STATUS_ACTIVE, STATUS_PENDING } from "../utils/coreConstant";
 import { generateErrorResponse, generateSuccessResponse } from "../utils/commonObject";
-import { getEthBalance, estimateGasFee, sendEthCoin, waitForTxConfirmedForGas, getGasPrice } from "./evm/erc20.web3.service";
-import { custome_decrypt, sleep, customFromWei, multiplyNumbers } from "../utils/helper";
+import { getEthBalance, estimateEthFee, sendEthCoin, waitForTxConfirmedForGas, getGasPrice } from "./evm/erc20.web3.service";
+import { custome_decrypt, customFromWei, multiplyNumbers } from "../utils/helper";
 import { NATIVE_COIN } from "../utils/coreConstant";
 import { sendErc20Token } from "./evm/erc20.token.service";
 import Web3 from "web3";
@@ -41,6 +41,7 @@ const receiveDepositCoinProcess = async(request:any) => {
 
                     coinNetworkData = coinNetwork[0]; // Extract the first item from the array
 
+                    coinNetworkData.transaction_id  = transaction.id;
                     coinNetworkData.id              = coinNetwork[0]?.id?.toString();
                     coinNetworkData.network_id      = coinNetwork[0]?.network_id?.toString();
                     coinNetworkData.currency_id     = coinNetwork[0]?.currency_id?.toString();
@@ -51,7 +52,7 @@ const receiveDepositCoinProcess = async(request:any) => {
                     coinNetworkData.from_address    = transaction.from_address;
                     coinNetworkData.amount          = transaction.amount;
                     coinNetworkData.blockConfirm    = coinNetwork[0]?.block_confirmation ?? 1;
-                    coinNetworkData.is_native       = (coinNetwork[0]?.currency_type == NATIVE_COIN) ? true : false;
+                    coinNetworkData.is_native       = (coinNetwork[0]?.type == NATIVE_COIN) ? true : false;
                     coinNetworkData.contractAddress = coinNetwork[0]?.contract_address ?? null;
                                    
                     const systemWallet = await prisma.admin_wallet_keys.findFirst({
@@ -129,24 +130,37 @@ const takeCoinFromEvmNetwork = async (network:any, systemWallet:any, userWallet:
     userBalance = Number(userWalletBalance?.data);
 
     // Check Estimate Gas
-    if(network.gas_limit > 0){console.log(network.gas_limit);
+    if(network.gas_limit > 0){
         // let gasToWei = (0.000000000000000001 * network.gas_limit).toString();
         const gas_price = await getGasPrice(network.rpc_url);
         let gasToWei = customFromWei(multiplyNumbers(network.gas_limit, Number(gas_price)),network.decimal);
         gas = parseFloat(gasToWei).toFixed(18);
-        gas = Number(gas);
-        sendAmount = gas;
+        gas = Number(gas) + 0.000000000000001; // 16 diget
+        sendAmount = gas ; 
+        console.log("Has gas limit sendAmount", sendAmount);
     }else{
-        let ethEstimateGas = await estimateGasFee(network.rpc_url, network.decimal, network.gas_limit, userWallet.address, network.amount, network.contractAddress);
+        console.log("Estimate gas limit");
+        // let ethEstimateGas = await estimateGasFee(network.rpc_url, network.decimal, network.gas_limit, userWallet.address, network.amount, network.contractAddress);
+        let ethEstimateGas = await estimateEthFee(
+            network.rpc_url,
+            network.coin_type,
+            network.decimal,
+            network.gas_limit,
+            systemWallet.address,
+            userWallet.address,
+            network.amount
+        );
         if(!(ethEstimateGas.hasOwnProperty("success") && ethEstimateGas.success))
                 return generateErrorResponse(ethEstimateGas?.message ?? "Estimate gas check failed");
-        gas = Number(ethEstimateGas?.data?.fee) * 2; 
-        sendAmount = gas; console.log(gas);
+        gas = Number(ethEstimateGas?.data?.fees) + 0.000000000000001; 
+        sendAmount = gas; console.log("sendAmount", sendAmount);
     }
 
     
     // user wallet balance check and gas set
     if((userBalance > 0)){
+        if(network.is_native)
+        userBalance = (userBalance > network.amount) ? (userBalance - network.amount) : (network.amount - userBalance);
         console.log("User Balance Has:", userBalance.toFixed(network.decimal));
         console.log("Estimate Gas Fee:", gas.toFixed(network.decimal));
 
@@ -161,8 +175,9 @@ const takeCoinFromEvmNetwork = async (network:any, systemWallet:any, userWallet:
         }
     }
 
-    if(needGas){
+    if(needGas){console.log("sendAmount", sendAmount);
         // send gas to user
+        sendAmount = Number(sendAmount.toFixed(network.decimal));
         let sendNativeCoin = await sendEthCoin(
                 network.rpc_url, 
                 network.coin_type, 
@@ -180,9 +195,6 @@ const takeCoinFromEvmNetwork = async (network:any, systemWallet:any, userWallet:
         let waitForTransaction = await waitForTxConfirmedForGas(network.rpc_url, sendNativeCoin.data, network.blockConfirm);
         if(!(waitForTransaction.hasOwnProperty("success") && waitForTransaction.success))
             return generateErrorResponse(waitForTransaction?.message ?? "Transaction Failed");
-
-        //console.log("waitForTransaction", waitForTransaction);
-        // return generateSuccessResponse("gas send confirmed",sendNativeCoin.data);
     }
 
     // send coins to system wallet from user
@@ -211,7 +223,13 @@ const takeCoinFromEvmNetwork = async (network:any, systemWallet:any, userWallet:
         ) ;
     if(!(sendToWystemWallet.hasOwnProperty("success") && sendToWystemWallet.success))
         return generateErrorResponse(sendToWystemWallet?.message ?? "Coins received Failed");
-    return generateSuccessResponse("Coins received successfully", sendToWystemWallet?.data);
+
+    const transaction = await prisma.deposite_transactions.update({
+        where:{ id: network.transaction_id  },
+        data: { status : STATUS_ACTIVE, is_admin_receive: STATUS_ACTIVE, transaction_id: sendToWystemWallet.data.transaction_id}
+    });
+
+    return generateSuccessResponse("Coins received successfully", transaction);
 }
 
 export {

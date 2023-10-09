@@ -90,6 +90,7 @@ const estimateEthFee = async (
     
     maxFee = parseFloat(maxFee.toString()).toFixed(coinDecimal);
     console.log('maxFee', maxFee);
+    console.log('amount', amount);
     const balanceRequired = parseFloat((addNumbers(Number(maxFee),amount)).toString()).toFixed(coinDecimal);
     const balanceData:any = await getEthBalance(rpcUrl,fromAddress);
     const balance = balanceData['data'];
