@@ -1,10 +1,11 @@
 import { PrismaClient } from "@prisma/client";
-import { generateErrorResponse } from "../../utils/commonObject";
+import { generateErrorResponse, generateSuccessResponse } from "../../utils/commonObject";
 import { ADDRESS_TYPE_EXTERNAL, EVM_BASE_COIN, NATIVE_COIN, TOKEN_COIN, TRON_BASE_COIN } from "../../utils/coreConstant";
 import { getLatestTransaction } from "./erc20.web3.service";
 import { number } from "joi";
 import { decodeInputParameter } from "./erc20.token.service";
 import { addNumbers, createUniqueCode } from "../../utils/helper";
+import { checkTrxDepositByBlockNumber } from "./trx.tron-web.service";
 
 const prisma = new PrismaClient();
 
@@ -66,8 +67,14 @@ const checkEvmTokenDeposit = async(network:any) => {
     // const transactions = await 
 }
 
-const checkTrxNativeDeposit = async(network:any) => {
-    // const transactions = await 
+const checkTrxNativeDeposit = async(rpcUrl:any,blockNumber?:number) => {
+    try {
+        const transactions = await checkTrxDepositByBlockNumber(rpcUrl,blockNumber);
+        return generateSuccessResponse('data', transactions);
+    } catch(err) {
+        console.log('checkTrxNativeDeposit err', err);
+        return generateErrorResponse('err');
+    }
 }
 
 const checkTrxTokenDeposit = async(network:any) => {
@@ -243,4 +250,5 @@ const updateNetworkBlockNumber = async(network_id:any,block_number:number) => {
 
 export {
     checkCoinDeposit,
+    checkTrxNativeDeposit
 }
